@@ -5,6 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
+import s3Config from './config/s3.config';
 import { validate } from './config/env.validation';
 
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
@@ -14,12 +15,13 @@ import { HealthModule } from './modules/health/health.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { UploadsModule } from './modules/uploads/uploads.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig],
+      load: [appConfig, databaseConfig, jwtConfig, s3Config],
       validate,
     }),
     PrismaModule,
@@ -27,6 +29,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     UsersModule,
     HealthModule,
     OrganizationsModule,
+    UploadsModule,
   ],
   providers: [
     {
