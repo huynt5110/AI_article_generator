@@ -1,0 +1,18 @@
+{
+  "moduleFileExtensions": [
+    "js",
+    "json",
+    "ts"
+  ],
+  "rootDir": ".",
+  "testRegex": ".*\\.spec\\.ts$",
+  "collectCoverageFrom": [
+    "**/*.(t|j)s"
+  ],
+  "coverageDirectory": "../../coverage/apps/ai-worker",
+  "testEnvironment": "node",
+  "moduleNameMapper": {
+    "^@app/shared$": "<rootDir>/../../libs/shared/src",
+    "^@app/shared/(.*)$": "<rootDir>/../../libs/shared/src/$1"
+  }
+}
