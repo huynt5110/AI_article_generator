@@ -1,0 +1,40 @@
+# AI worker-only image (no API source or build artifacts)
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY prisma.config.ts ./
+COPY prisma ./prisma/
+RUN npm ci
+
+COPY nest-cli.json tsconfig.json ./
+COPY libs ./libs/
+COPY apps/ai-worker ./apps/ai-worker/
+
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+RUN npx prisma generate
+RUN npm run build:worker
+
+FROM node:20-alpine AS deps
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY prisma.config.ts ./
+COPY prisma ./prisma/
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+RUN npm ci --omit=dev
+RUN npx prisma generate
+
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/dist/apps/ai-worker ./dist
+COPY --from=builder /app/prisma ./prisma
+
+CMD ["node", "dist/apps/ai-worker/src/main.js"]
