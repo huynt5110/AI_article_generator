@@ -16,15 +16,15 @@ export function UploadCard() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<UploadStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
-  
+
   const router = useRouter();
   const uploadMutation = useUploadDocument();
 
   const validateFile = (fileToValidate: File): boolean => {
     // Check extension and MIME type loosely
-    const isDocx = fileToValidate.name.toLowerCase().endsWith('.docx') || 
-                   fileToValidate.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    
+    const isDocx = fileToValidate.name.toLowerCase().endsWith('.docx') ||
+      fileToValidate.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
     if (!isDocx) {
       setErrorMessage('Only .docx files are supported.');
       return false;
@@ -44,7 +44,7 @@ export function UploadCard() {
     setErrorMessage('');
     setStatus('idle');
     setProgress(0);
-    
+
     if (selectedFile) {
       if (validateFile(selectedFile)) {
         setFile(selectedFile);

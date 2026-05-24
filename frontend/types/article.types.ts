@@ -41,5 +41,6 @@ export interface PaginatedDraftResponse {
     nextCursor: string | null;
     hasNextPage: boolean;
     total: number;
+    isProcessing?: boolean;
   };
 }

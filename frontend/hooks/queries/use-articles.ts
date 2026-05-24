@@ -3,7 +3,7 @@ import { draftsService } from '@/lib/api/drafts.service';
 import { queryKeys } from '@/lib/react-query/query-keys';
 import { DraftStatus } from '@/types/article.types';
 
-export function useArticles(status?: DraftStatus) {
+export function useArticles(status?: DraftStatus, refetchInterval?: number | false | ((query: any) => number | false)) {
   return useInfiniteQuery({
     queryKey: [...queryKeys.articles, status],
     queryFn: ({ pageParam }) =>
@@ -17,5 +17,6 @@ export function useArticles(status?: DraftStatus) {
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 30, // 30 minutes
     refetchOnWindowFocus: true,
+    refetchInterval,
   });
 }

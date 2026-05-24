@@ -16,10 +16,10 @@ export function KeyFactsPanel({ bestFor, notFor, keyFacts, ethicsNotes }: KeyFac
   const hasEthicsNotes = ethicsNotes && ethicsNotes.length > 0;
 
   if (!hasBestFor && !hasNotFor && !hasKeyFacts && !hasEthicsNotes) return null;
-
+  console.log('keyFacts', keyFacts)
   return (
     <div className="space-y-8 bg-zinc-50 dark:bg-zinc-900/50 p-6 md:p-8 rounded-2xl border border-zinc-200 dark:border-zinc-800">
-      
+
       {hasEthicsNotes && (
         <Alert variant="destructive" className="bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-200 border-amber-200 dark:border-amber-900">
           <AlertTriangle className="h-4 w-4" />
@@ -40,7 +40,7 @@ export function KeyFactsPanel({ bestFor, notFor, keyFacts, ethicsNotes }: KeyFac
             {Object.entries(keyFacts).map(([key, value]) => (
               <div key={key} className="flex flex-col gap-1 border-b border-zinc-200 dark:border-zinc-800 pb-2 last:border-0 sm:last:border-b">
                 <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                <span className="text-zinc-600 dark:text-zinc-400">{String(value)}</span>
+                <span className="text-zinc-600 dark:text-zinc-400">{String(value.replace(/([A-Z])/g, ' $1').trim())}</span>
               </div>
             ))}
           </div>

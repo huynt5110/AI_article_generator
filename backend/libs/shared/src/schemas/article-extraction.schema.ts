@@ -16,7 +16,7 @@ export const articleExtractionSchema = z.object({
   ),
   bestFor: z.union([z.array(z.string()), z.string().transform((s) => [s])]),
   notFor: z.union([z.array(z.string()), z.string().transform((s) => [s])]),
-  keyFacts: z.record(z.string(), z.unknown()),
+  keyFacts: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
   ethicsNotes: z.union([z.array(z.string()), z.string().transform((s) => [s])]),
   provenance: z.array(provenanceItemSchema),
 });

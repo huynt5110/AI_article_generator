@@ -7,6 +7,8 @@ import { DraftsAccessPolicy } from '../policies/drafts-access.policy';
 import { JsonPatchApplicator } from '../strategies/json-patch/json-patch.applicator';
 import { DraftMapper } from '../mappers/draft.mapper';
 
+import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+
 @Injectable()
 export class DraftsService {
   constructor(
@@ -15,6 +17,7 @@ export class DraftsService {
     private readonly accessPolicy: DraftsAccessPolicy,
     private readonly patchApplicator: JsonPatchApplicator,
     private readonly draftMapper: DraftMapper,
+    private readonly prisma: PrismaService,
   ) {}
 
   async listDrafts(user: any, cursor?: string, limit = 20, status?: DraftStatus) {
@@ -28,11 +31,20 @@ export class DraftsService {
       userId: user.sub,
     });
 
+    // Check if the user has any active extraction jobs
+    const activeJobsCount = await this.prisma.extractionJob.count({
+      where: {
+        upload: { userId: user.sub },
+        status: { notIn: ['COMPLETED', 'FAILED'] },
+      },
+    });
+
     return {
       data: this.draftMapper.toListResponseDto(data),
       meta: {
         cursor: nextCursor,
         hasNextPage: !!nextCursor,
+        isProcessing: activeJobsCount > 0,
       },
     };
   }

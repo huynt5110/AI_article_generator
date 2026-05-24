@@ -18,7 +18,15 @@ export function ArticleList() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useArticles();
+  } = useArticles(undefined, (query: any) => {
+    const pages = query?.state?.data?.pages || [];
+
+    // Check if the backend reported active processing jobs for this user
+    const isProcessing = pages.some((page: any) => page?.meta?.isProcessing === true);
+
+    // If backend reports active jobs, poll every 10 seconds
+    return isProcessing ? 10000 : false;
+  });
 
   if (isLoading) {
     return (
