@@ -1,37 +1,38 @@
-# Next Stage — Authentication UI (Signup/Login)
+# Next Stage — Articles List Page + Navigation
 
 # Goal
 
-Implement authentication screens using:
+Implement the authenticated application layout and articles list screen using:
 - Next.js App Router
 - TypeScript
 - TailwindCSS
 - shadcn/ui
 - TanStack React Query
-- Axios
-- React Hook Form
-- Zod
+
+This stage should allow users to:
+- view list of article drafts
+- paginate through drafts
+- navigate to edit page
+- navigate to upload page
+- view article metadata
+- use authenticated navbar layout
 
 IMPORTANT:
-- Do NOT use inline CSS
-- Do NOT use CSS modules
-- Use Tailwind utility classes only
-- Use React Query for ALL API requests/state
-- Configure stale times properly
-
 Focus ONLY on:
-- login page
-- signup page
-- auth layout
-- form validation
-- API integration
-- auth state management
+- app shell
+- navbar
+- articles list page
+- list item cards/table
+- pagination
+- loading/empty/error states
+- navigation
 
 Do NOT implement:
-- dashboard
-- uploads
-- article editing
-- AI workflows
+- article editor
+- upload functionality
+- AI generation
+- realtime updates
+- search indexing
 
 ---
 
@@ -43,318 +44,379 @@ Do NOT implement:
 - shadcn/ui
 - TanStack React Query
 - Axios
-- React Hook Form
-- Zod
 
 ---
 
-# Architecture Requirements
+# Application Layout Requirements
 
-Implement clean frontend architecture.
+Create authenticated application layout.
 
 Recommended structure:
 
 ```txt
 /app
-  /(auth)
-    /login
-    /signup
-
-/components
-  /auth
-
-/lib
-  /api
-  /auth
-  /react-query
-
-/hooks
-  /mutations
-  /queries
-
-/schemas
+  /(dashboard)
+    /articles
+    /upload
 ```
 
 ---
 
-# React Query Setup
+# Main Layout Requirements
 
-Create centralized React Query provider.
+Create:
+- top navbar
+- responsive container
+- content area
 
-Example:
+Navbar should contain:
+- app logo/name
+- Articles link
+- Upload link
+- user avatar/menu placeholder
+
+---
+
+# Navbar Requirements
+
+Desktop navbar:
 
 ```txt
-/lib/react-query/
-  query-client.ts
-  provider.tsx
+---------------------------------------------------
+Logo      Articles      Upload        User Avatar
+---------------------------------------------------
+```
+
+Mobile:
+- responsive menu
+- collapsible navigation
+
+---
+
+# Navigation Requirements
+
+Navbar links:
+
+| Label | Route |
+|---|---|
+| Articles | /articles |
+| Upload | /upload |
+
+Active route should be visually highlighted.
+
+---
+
+# Articles Page Requirements
+
+Route:
+
+```txt
+/articles
+```
+
+Page should display:
+- draft article list
+- article metadata
+- edit action
+- pagination
+- loading states
+- empty states
+
+---
+
+# Article List Data Source
+
+Assume backend endpoint:
+
+```http
+GET /drafts
+```
+
+Supports:
+- cursor pagination
+- limit
+
+Example response:
+
+```json
+{
+  "data": [
+    {
+      "id": "draft_123",
+      "title": "Komodo Boat Adventure",
+      "status": "DRAFT",
+      "updatedAt": "2025-01-01",
+      "createdAt": "2025-01-01"
+    }
+  ],
+  "meta": {
+    "nextCursor": "abc123",
+    "hasNextPage": true
+  }
+}
 ```
 
 ---
 
-# Query Client Requirements
+# React Query Requirements
 
-Configure:
-- staleTime
-- gcTime
-- retry behavior
-- refetch policies
+Create query hook:
 
-Recommended defaults:
+```txt
+/hooks/queries/use-articles.ts
+```
+
+Use:
+- useInfiniteQuery OR cursor pagination pattern
+
+Recommended query key:
 
 ```ts
-staleTime: 1000 * 60 * 5
+['articles']
+```
+
+---
+
+# React Query Config
+
+Recommended:
+
+```ts
+staleTime: 1000 * 60 * 2
 gcTime: 1000 * 60 * 30
-retry: 1
 refetchOnWindowFocus: false
 ```
 
-IMPORTANT:
-Do NOT use default aggressive refetching behavior.
-
----
-
-# Why Stale Time Matters
-
-Auth/user state changes infrequently.
-
-Without staleTime:
-- unnecessary API calls
-- extra renders
-- poor UX
-
-Use meaningful cache strategy.
-
----
-
-# Recommended Auth Query Strategy
-
-# Current User Query
-
-Use query key:
-
-```ts
-['me']
-```
-
-Recommended staleTime:
-
-```ts
-10 minutes
-```
-
 Reason:
-- user profile rarely changes
-- avoids spam refetching
+- article lists change moderately
+- avoid excessive refetching
 
 ---
 
-# Login/Signup
+# UI Style Requirements
 
-Use:
-- React Query mutations
-
-NOT queries.
-
----
-
-# API Layer Requirements
-
-Create reusable Axios client.
-
-Example:
-
-```txt
-/lib/api/
-  client.ts
-```
-
-Requirements:
-- baseURL support
-- auth token injection
-- response interceptors
-- error normalization
-
----
-
-# Authentication Layer
-
-Recommended structure:
-
-```txt
-/lib/auth/
-  auth.service.ts
-  auth.storage.ts
-  auth.types.ts
-  auth.constants.ts
-```
-
----
-
-# Token Handling
-
-Use abstraction.
-
-Do NOT access localStorage directly throughout app.
-
-Example:
-
-```ts
-authStorage.setToken()
-authStorage.getToken()
-authStorage.clear()
-```
-
----
-
-# Recommended Token Strategy
-
-Preferred:
-- httpOnly cookies if backend supports it
-
-Temporary acceptable:
-- localStorage abstraction
-
----
-
-# Pages To Implement
-
-# 1. Login Page
-
-Route:
-
-```txt
-/login
-```
-
-Fields:
-- email
-- password
-
-Actions:
-- submit login
-- link to signup
-
----
-
-# 2. Signup Page
-
-Route:
-
-```txt
-/signup
-```
-
-Fields:
-- full name
-- email
-- password
-- confirm password
-
-Actions:
-- submit signup
-- link to login
-
----
-
-# Validation Requirements
-
-Use:
-- Zod
-- React Hook Form
-
----
-
-# Login Validation
-
-```txt
-email:
-- required
-- valid email
-
-password:
-- minimum 8 chars
-```
-
----
-
-# Signup Validation
-
-```txt
-name:
-- required
-- minimum 2 chars
-
-email:
-- valid email
-
-password:
-- minimum 8 chars
-
-confirmPassword:
-- must match password
-```
-
----
-
-# UI Design Requirements
-
-The UI should feel:
-- modern
-- premium
+The application should feel:
 - editorial
+- modern
 - minimal
+- premium SaaS
 
 Inspiration:
-- Linear
-- Vercel
 - Notion
+- Linear
 - Medium
+- Vercel
 
 Avoid:
-- flashy gradients
-- oversized shadows
-- playful UI
+- cluttered dashboards
+- giant shadows
+- excessive colors
 
 ---
 
-# Layout Requirements
+# Articles List Layout
+
+Use:
+- clean card list OR table layout
+- responsive spacing
+- subtle borders
+- hover states
+
+Each article item should show:
+
+| Field | Example |
+|---|---|
+| Title | Komodo Boat Adventure |
+| Status | DRAFT |
+| Updated At | Jan 1, 2025 |
+| Action | Edit button |
+
+---
+
+# Edit Button Requirements
+
+Each article row/card should contain:
+
+```txt
+Edit
+```
+
+Button action:
+
+```txt
+/articles/:id/edit
+```
+
+IMPORTANT:
+Do NOT implement full editor page yet.
+
+Only navigation setup.
+
+---
+
+# Empty State Requirements
+
+If no articles exist:
+
+Show:
+- empty illustration placeholder
+- helpful message
+- upload CTA button
+
+Example:
+
+```txt
+No drafts yet.
+Upload your first travel notes document to get started.
+```
+
+Include button:
+
+```txt
+Go to Upload
+```
+
+---
+
+# Loading State Requirements
+
+During loading:
+- show skeleton loaders
+- avoid layout shift
+
+Use:
+- shadcn skeleton component
+
+---
+
+# Error State Requirements
+
+Display friendly error UI.
+
+Example:
+
+```txt
+Failed to load drafts.
+Try again.
+```
+
+Include retry button.
+
+---
+
+# Pagination Requirements
+
+Use cursor pagination.
+
+Do NOT use offset pagination.
+
+Requirements:
+- Load More button OR infinite scroll
+- preserve query cache
+- stable ordering
+
+Recommended ordering:
+
+```txt
+updatedAt DESC
+```
+
+---
+
+# Recommended Components Structure
+
+```txt
+/components
+  /layout
+    navbar.tsx
+    app-shell.tsx
+
+  /articles
+    article-list.tsx
+    article-card.tsx
+    article-empty-state.tsx
+    article-skeleton.tsx
+```
+
+---
+
+# Recommended Hooks Structure
+
+```txt
+/hooks
+  /queries
+    use-articles.ts
+```
+
+---
+
+# Recommended API Layer
+
+```txt
+/lib/api
+  drafts.service.ts
+```
+
+Responsibilities:
+- fetch drafts
+- pagination params
+- response typing
+
+---
+
+# Type Safety Requirements
+
+Create shared types:
+
+```txt
+/types
+  article.types.ts
+```
+
+Include:
+- DraftArticle
+- DraftStatus
+- PaginatedDraftResponse
+
+---
+
+# Status Badge Requirements
+
+Display colored status badges.
+
+Statuses:
+
+| Status | Style |
+|---|---|
+| DRAFT | neutral |
+| REVIEW_REQUIRED | warning |
+| READY | success |
+
+Use subtle colors only.
+
+---
+
+# Accessibility Requirements
+
+Must support:
+- keyboard navigation
+- semantic buttons
+- aria labels
+- accessible pagination
+- screen reader support
+
+---
+
+# Responsive Requirements
 
 Desktop:
-- split-screen auth layout
-
-Left side:
-- branding
-- product messaging
-
-Right side:
-- auth form card
+- comfortable content width
+- table/card layout
 
 Mobile:
-- stacked layout
-
----
-
-# Example Branding Copy
-
-```txt
-Transform rough travel notes into structured editorial stories powered by AI.
-```
-
-Keep copy short and premium.
-
----
-
-# Component Requirements
-
-Create reusable components:
-
-```txt
-/components/auth/
-  auth-layout.tsx
-  auth-header.tsx
-  login-form.tsx
-  signup-form.tsx
-```
+- stacked cards
+- simplified metadata
+- responsive navbar
 
 ---
 
@@ -363,262 +425,119 @@ Create reusable components:
 Use:
 - Card
 - Button
-- Input
-- Label
-- Alert
-- Form
+- Badge
+- Skeleton
+- DropdownMenu
 - Separator
 
 ---
 
-# Accessibility Requirements
+# Authentication Requirements
 
-Must support:
-- keyboard navigation
-- semantic labels
-- aria-invalid
-- accessible errors
-- proper focus states
+Articles page must assume authenticated users only.
+
+Use existing:
+- auth query
+- auth guard
+- token handling
+
+Do NOT implement auth again.
 
 ---
 
-# Form UX Requirements
-
-# Loading State
-
-Disable submit button during mutation.
-
-Show:
-- spinner
-- loading text
-
-Examples:
+# Recommended Layout Structure
 
 ```txt
-Signing in...
-Creating account...
+---------------------------------------------------
+Navbar
+---------------------------------------------------
+
+My Articles
+
+[ Article Card ]
+[ Article Card ]
+[ Article Card ]
+
+Load More
 ```
 
 ---
 
-# Error Handling
+# Important UI Behaviors
 
-Handle:
-- validation errors
-- network errors
-- API auth errors
+# Hover State
 
-Example:
+Article card should:
+- slightly elevate
+- show subtle border change
 
-```txt
-Invalid email or password
-```
+Keep motion minimal.
 
 ---
 
-# Success Handling
+# Active Navbar Link
 
-After successful auth:
-- persist token
-- invalidate current user query
-- redirect user
-
-Use React Query invalidation.
-
-Example:
-
-```ts
-queryClient.invalidateQueries({
-  queryKey: ['me']
-})
-```
-
----
-
-# React Query Mutation Requirements
-
-# Login Mutation
-
-Create:
-
-```txt
-/hooks/mutations/use-login.ts
-```
+Highlight current route.
 
 Use:
-- useMutation
+- muted background
+- font weight change
 
-Responsibilities:
-- call login API
-- persist token
-- invalidate user query
-- redirect
+Avoid flashy indicators.
 
 ---
 
-# Signup Mutation
+# Future-Proofing Considerations
 
-Create:
+Prepare architecture for future:
+- article search
+- filtering
+- sorting
+- collaborative editing
 
-```txt
-/hooks/mutations/use-signup.ts
-```
-
-Responsibilities:
-- register user
-- persist token
-- invalidate user query
-- redirect
+BUT do NOT implement them now.
 
 ---
 
-# Current User Query
-
-Create:
-
-```txt
-/hooks/queries/use-current-user.ts
-```
-
-Requirements:
-- fetch authenticated user
-- cache with staleTime
-- disable retries on 401
-
-Recommended config:
-
-```ts
-retry: false
-staleTime: 1000 * 60 * 10
-```
-
----
-
-# Protected Route Preparation
-
-Prepare architecture for future protected routes.
-
-Suggested:
-
-```txt
-/components/auth/
-  auth-guard.tsx
-```
-
-Do NOT fully implement route middleware yet.
-
----
-
-# Styling Rules
-
-IMPORTANT:
-Use:
-- Tailwind utility classes
-- shadcn/ui
-
-Do NOT:
-- use inline styles
-- use CSS modules
-- use styled-components
-
-Bad:
-
-```tsx
-style={{ padding: 12 }}
-```
-
----
-
-# Responsive Requirements
-
-Must work well on:
-- mobile
-- tablet
-- desktop
-
-Mobile:
-- full-width form
-- reduced spacing
-- stacked layout
-
----
-
-# Dark Mode Support
-
-Support dark mode using Tailwind class strategy.
-
-Ensure:
-- readable contrast
-- muted backgrounds
-- accessible borders
-
----
-
-# Recommended Query Keys
-
-```ts
-['me']
-['auth']
-```
-
-Keep query keys centralized.
-
-Example:
-
-```txt
-/lib/react-query/query-keys.ts
-```
-
----
-
-# Important React Query Anti-Patterns To Avoid
+# Important Anti-Patterns To Avoid
 
 # DO NOT
 
-## 1. Use React Query For Form State
+## 1. Put Fetch Logic Inside Components
 
-React Query is for:
-- server state
-
-NOT:
-- input state
-
-Use React Hook Form for forms.
+Use:
+- hooks
+- service layer
 
 ---
 
-## 2. Refetch Aggressively
+## 2. Use Offset Pagination
 
-Disable:
-
-```ts
-refetchOnWindowFocus: true
-```
-
-for auth flows.
+Use cursor pagination only.
 
 ---
 
-## 3. Use Giant Global Stores
+## 3. Add Redux/Zustand
 
-Do NOT add Redux/Zustand prematurely.
-
-React Query + hooks is enough.
+React Query is enough.
 
 ---
 
-## 4. Scatter Axios Calls Everywhere
+## 4. Overbuild Dashboard UI
 
-Centralize API client/service layer.
+Keep UI clean and focused.
 
 ---
 
-## 5. Ignore Loading/Error States
+## 5. Hardcode API Responses
 
-Every mutation must handle:
-- loading
-- success
-- failure
+Use typed interfaces.
+
+---
+
+## 6. Refetch Aggressively
+
+Disable unnecessary refetching.
 
 ---
 
@@ -626,25 +545,24 @@ Every mutation must handle:
 
 Implement:
 
-- React Query provider
-- Axios client
-- auth service layer
-- login page
-- signup page
-- Zod validation
-- React Hook Form integration
-- login mutation
-- signup mutation
-- current user query
-- token storage abstraction
-- responsive auth layout
-- dark mode support
+- authenticated app shell
+- responsive navbar
+- articles page
+- article list component
+- article cards/table
+- React Query articles hook
+- cursor pagination
+- loading skeletons
+- empty states
+- error states
+- Edit button navigation
+- Upload page navigation
 
 Do NOT implement:
-- dashboard
+- article editor
 - uploads
-- article pages
-- collaborative editing
-- websocket logic
+- AI workflows
+- realtime features
+- search/filtering
 
-Focus ONLY on scalable authentication UI architecture.
+Focus ONLY on scalable article browsing/navigation infrastructure.
