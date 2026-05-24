@@ -1,13 +1,14 @@
-# Next Stage — Upload Page (.docx Upload Flow)
+# Next Stage — Article Editor & Save Flow
 
 # Goal
 
-Implement the upload page where authenticated users can:
-- upload `.docx` travel notes files
-- track upload progress
-- trigger backend extraction job creation
-- view upload states
-- handle validation/errors cleanly
+Implement the article editing screen where authenticated users can:
+- open a generated draft article
+- edit structured content
+- save partial changes
+- preserve provenance visibility
+- track saving state
+- handle optimistic updates cleanly
 
 Use:
 - Next.js App Router
@@ -15,48 +16,53 @@ Use:
 - TailwindCSS
 - shadcn/ui
 - TanStack React Query
-- Axios
+- React Hook Form
+- Zod
 
 IMPORTANT:
 Focus ONLY on:
-- upload page UI
-- file validation
-- upload request flow
-- upload progress
-- loading/error/success states
+- article editor page
+- editable structured fields
+- save flow
+- partial updates
+- provenance display
+- optimistic UI
 
 Do NOT implement:
-- article editor
-- AI processing UI
-- realtime websocket updates
-- drag-and-drop libraries
-- multi-file uploads
-
-Single `.docx` upload only.
+- collaborative editing
+- realtime sync
+- comments
+- AI regeneration
+- version restore UI
+- publishing workflow
 
 ---
 
-# Upload Flow Requirements
+# High-Level Requirements
 
-Current backend behavior:
+Users should be able to:
+- open article draft
+- edit any editable field
+- save changes
+- see save state
+- see provenance/source references
+- navigate back to articles list
+
+---
+
+# Route Requirements
+
+Create route:
 
 ```txt
-Client
-  →
-NestJS API
-  →
-API uploads file to S3
-  →
-API creates extraction job
-  →
-API returns immediately
+/articles/[id]/edit
 ```
 
-Frontend only needs to:
-1. upload file
-2. show progress/loading
-3. show success/error state
-4. redirect or navigate to articles page
+This route should:
+- require authentication
+- fetch article draft
+- fetch provenance data
+- support editing/saving
 
 ---
 
@@ -67,299 +73,350 @@ Frontend only needs to:
 - TailwindCSS
 - shadcn/ui
 - TanStack React Query
+- React Hook Form
+- Zod
 - Axios
-
----
-
-# Route Requirements
-
-Create route:
-
-```txt
-/upload
-```
-
-This route must:
-- require authentication
-- use existing app shell/navbar
-- match overall editorial/minimal design system
-
----
-
-# Page Layout Requirements
-
-Layout should feel:
-- focused
-- clean
-- editorial
-- premium SaaS
-
-Avoid:
-- clutter
-- huge upload zones
-- excessive gradients
-- playful UI
-
----
-
-# Upload UI Requirements
-
-Page should contain:
-
-# Header
-
-Example:
-
-```txt
-Upload Travel Notes
-```
-
-Subtitle:
-
-```txt
-Upload a .docx file containing rough travel notes. We'll transform it into a structured editorial draft.
-```
-
----
-
-# Upload Card
-
-Centered upload container with:
-- file picker
-- upload instructions
-- selected file state
-- upload progress
-- submit button
-
----
-
-# File Restrictions
-
-IMPORTANT:
-Allow ONLY:
-
-```txt
-.docx
-```
-
-Accepted MIME type:
-
-```txt
-application/vnd.openxmlformats-officedocument.wordprocessingml.document
-```
-
-Reject:
-- pdf
-- doc
-- txt
-- images
-- zip
-
----
-
-# File Size Restrictions
-
-Max size:
-
-```txt
-10MB
-```
-
-Validate:
-- client-side
-- server-side errors
-
----
-
-# Upload UX Requirements
-
-# Before File Selected
-
-Show:
-- upload icon
-- instruction text
-- supported format note
-
-Example:
-
-```txt
-Select a .docx file
-```
-
----
-
-# After File Selected
-
-Display:
-- filename
-- size
-- remove/change action
-
-Example:
-
-```txt
-komodo-trip.docx
-2.1 MB
-```
-
----
-
-# Upload Progress
-
-IMPORTANT:
-Show real upload progress.
-
-Use:
-- Axios onUploadProgress
-
-Display:
-- progress bar
-- percentage
-
-Example:
-
-```txt
-Uploading... 62%
-```
-
----
-
-# Upload States
-
-Support:
-- idle
-- validating
-- uploading
-- success
-- error
-
----
-
-# Success State
-
-After successful upload:
-
-Show:
-
-```txt
-Upload successful. Your draft is being processed.
-```
-
-Provide:
-- button to view articles
-OR
-- automatic redirect
-
-Recommended:
-- redirect to `/articles`
-
----
-
-# Error State Requirements
-
-Handle:
-- invalid file type
-- file too large
-- upload failures
-- server errors
-- auth errors
-
-Example messages:
-
-```txt
-Only .docx files are supported.
-```
-
-```txt
-File size exceeds 10MB limit.
-```
-
-```txt
-Upload failed. Please try again.
-```
-
----
-
-# React Query Requirements
-
-Create mutation hook:
-
-```txt
-/hooks/mutations/use-upload-document.ts
-```
-
-Use:
-- useMutation
-
-Responsibilities:
-- upload file
-- track progress
-- handle success/error
-- invalidate article queries if needed
-
----
-
-# Recommended Query Invalidations
-
-After successful upload:
-
-```ts
-queryClient.invalidateQueries({
-  queryKey: ['articles']
-})
-```
-
-Reason:
-new draft may appear later.
 
 ---
 
 # API Requirements
 
-Assume backend endpoint:
+Assume backend endpoints:
+
+# Get Draft
 
 ```http
-POST /uploads
+GET /drafts/:id
 ```
 
-Content-Type:
+---
 
-```txt
-multipart/form-data
+# Update Draft
+
+```http
+PATCH /drafts/:id
 ```
 
-Payload:
+---
 
-```txt
-file: .docx
-```
-
-Example response:
+# Example Draft Response
 
 ```json
 {
   "data": {
-    "uploadId": "upload_123",
-    "jobId": "job_123",
-    "status": "QUEUED"
+    "id": "draft_123",
+    "title": "Komodo Boat Adventure",
+    "hook": "A magical overnight journey through Komodo National Park.",
+    "structuredContent": {
+      "sections": [
+        {
+          "heading": "The Boat Experience",
+          "content": "..."
+        }
+      ],
+      "bestFor": [
+        "Budget travelers"
+      ],
+      "notFor": [
+        "Luxury travelers"
+      ],
+      "keyFacts": {
+        "priceRange": "$140-$180",
+        "duration": "2D1N"
+      }
+    },
+    "provenance": [
+      {
+        "fieldPath": "structuredContent.keyFacts.priceRange",
+        "sourceParagraphKey": "p12",
+        "sourceText": "The overnight Komodo boat trip cost about $140."
+      }
+    ]
   }
 }
 ```
 
 ---
 
-# API Layer Requirements
+# Layout Requirements
+
+Desktop layout:
+
+```txt
+----------------------------------------------------
+| Navbar                                            |
+----------------------------------------------------
+
+| Editor Content             | Provenance Sidebar  |
+|                            |                     |
+| Title                      | Source paragraph    |
+| Hook                       | mappings            |
+| Sections                   |                     |
+| Key Facts                  |                     |
+| Best For                   |                     |
+----------------------------------------------------
+```
+
+---
+
+# Mobile Layout
+
+Stack vertically:
+
+```txt
+Editor
+↓
+Provenance
+```
+
+---
+
+# Editor Requirements
+
+Editable fields:
+
+| Field | Editable Type |
+|---|---|
+| title | text input |
+| hook | textarea |
+| sections | repeatable block |
+| bestFor | tag/list editor |
+| notFor | tag/list editor |
+| keyFacts | key-value fields |
+
+---
+
+# Recommended Form Structure
+
+Use:
+- React Hook Form
+- nested form structure
+
+Recommended schema:
+
+```ts
+{
+  title: string
+  hook: string
+  structuredContent: {
+    sections: []
+    bestFor: []
+    notFor: []
+    keyFacts: {}
+  }
+}
+```
+
+---
+
+# Validation Requirements
+
+Use:
+- Zod
+- React Hook Form resolver
+
+Validate:
+- title max length
+- empty sections
+- malformed key facts
+- invalid arrays
+
+---
+
+# Save Flow Requirements
+
+IMPORTANT:
+Support partial updates.
+
+Do NOT send:
+- giant full payloads for tiny edits
+
+Backend already supports:
+- partial JSON updates
+
+---
+
+# Example Update Payload
+
+```json
+{
+  "operations": [
+    {
+      "path": "title",
+      "value": "Updated Komodo Adventure"
+    },
+    {
+      "path": "structuredContent.keyFacts.priceRange",
+      "value": "$150-$200"
+    }
+  ]
+}
+```
+
+---
+
+# Save UX Requirements
+
+# Saving State
+
+Show:
+- saving indicator
+- disabled save button
+
+Example:
+
+```txt
+Saving...
+```
+
+---
+
+# Saved State
+
+Show subtle confirmation:
+
+```txt
+Saved
+```
+
+Avoid intrusive toasts for every save.
+
+---
+
+# Recommended Save Strategy
+
+Preferred:
+- manual save button
+
+NOT autosave yet.
+
+Autosave introduces:
+- race conditions
+- debounce complexity
+- conflict handling
+
+Keep save flow explicit for now.
+
+---
+
+# React Query Requirements
+
+# Draft Query
 
 Create:
 
 ```txt
-/lib/api/uploads.service.ts
+/hooks/queries/use-draft.ts
+```
+
+Query key:
+
+```ts
+['draft', draftId]
+```
+
+Recommended config:
+
+```ts
+staleTime: 1000 * 60 * 5
+refetchOnWindowFocus: false
+```
+
+---
+
+# Save Mutation
+
+Create:
+
+```txt
+/hooks/mutations/use-update-draft.ts
 ```
 
 Responsibilities:
-- multipart upload handling
-- progress callback support
-- typed responses
+- partial update mutation
+- optimistic updates
+- error rollback
+- query invalidation
+
+---
+
+# Optimistic Update Requirements
+
+IMPORTANT:
+Use optimistic updates for better UX.
+
+Flow:
+
+# Step 1
+
+Update cache immediately.
+
+---
+
+# Step 2
+
+Send PATCH request.
+
+---
+
+# Step 3
+
+Rollback on failure.
+
+---
+
+# Example React Query Pattern
+
+```ts
+onMutate
+onError
+onSettled
+```
+
+Use proper optimistic mutation flow.
+
+---
+
+# Provenance Sidebar Requirements
+
+Display:
+- source mappings
+- paragraph references
+- original extracted text
+
+Example:
+
+```txt
+Price Range
+Source: p12
+
+"The overnight Komodo boat trip cost about $140."
+```
+
+---
+
+# Provenance UX Requirements
+
+When user edits field:
+- provenance may become outdated
+
+Display subtle badge:
+
+```txt
+Modified
+```
+
+if field changed from original AI value.
+
+---
+
+# Recommended Provenance Structure
+
+Sidebar grouped by:
+- field
+- source paragraph
+
+Avoid giant raw provenance dumps.
 
 ---
 
@@ -367,33 +424,27 @@ Responsibilities:
 
 ```txt
 /components
-  /upload
-    upload-card.tsx
-    upload-dropzone.tsx
-    upload-progress.tsx
-    upload-error.tsx
+  /editor
+    article-editor.tsx
+    editor-header.tsx
+    section-editor.tsx
+    key-facts-editor.tsx
+    provenance-sidebar.tsx
+    save-status.tsx
 ```
-
-IMPORTANT:
-No external dropzone library needed yet.
-
-Simple file input is enough.
 
 ---
 
-# Upload Interaction Requirements
+# Recommended Hook Structure
 
-Use:
-- clickable upload area
-- hidden file input
-- drag-hover styling optional
+```txt
+/hooks
+  /queries
+    use-draft.ts
 
-Do NOT implement:
-- complex drag-and-drop logic
-- multi-upload queue
-- resumable uploads
-
-Keep flow simple.
+  /mutations
+    use-update-draft.ts
+```
 
 ---
 
@@ -405,8 +456,8 @@ Use:
 
 Do NOT:
 - use inline CSS
-- use CSS modules
-- use styled-components
+- use giant CSS files
+- use overly animated UI
 
 ---
 
@@ -414,145 +465,120 @@ Do NOT:
 
 Use:
 - Card
+- Input
+- Textarea
 - Button
-- Progress
-- Alert
+- Badge
 - Separator
+- ScrollArea
+- Skeleton
 
 ---
 
-# Accessibility Requirements
+# Editor UX Requirements
 
-Must support:
-- keyboard file selection
-- screen reader labels
-- accessible progress updates
-- proper button states
+# Sticky Header
 
----
+Header should contain:
+- article title
+- save button
+- save state
 
-# Mobile Responsiveness
-
-Mobile:
-- stacked layout
-- full-width upload card
-- touch-friendly actions
-
-Desktop:
-- centered upload card
-- constrained width
+Optional:
+- sticky positioning
 
 ---
 
-# Empty Upload State Example
+# Section Editing
+
+Allow:
+- edit section headings
+- edit content
+
+Do NOT implement:
+- drag reorder
+- block editor
+- rich text editor
+
+Simple textarea editing only.
+
+---
+
+# Key Facts Editing
+
+Use:
+- structured key-value layout
+
+Example:
 
 ```txt
-------------------------------------------------
-|                                              |
-|            Upload .docx Notes                |
-|                                              |
-|   Drag and drop or click to browse           |
-|                                              |
-|   Supported format: .docx                    |
-|   Max size: 10MB                             |
-|                                              |
-------------------------------------------------
+Price Range: $140-$180
+Duration: 2D1N
+Season: April-August
 ```
 
 ---
 
 # Loading State Requirements
 
-While uploading:
-- disable upload button
-- prevent duplicate submissions
-- show progress UI
+While fetching draft:
+- show skeleton layout
+- avoid layout shifts
 
 ---
 
-# Recommended Mutation Flow
+# Error State Requirements
 
-# Step 1
+If draft fails to load:
 
-Validate file client-side.
-
----
-
-# Step 2
-
-Create FormData.
+Show:
+- friendly error message
+- retry action
 
 ---
 
-# Step 3
+# Navigation Requirements
 
-Start upload mutation.
-
----
-
-# Step 4
-
-Track upload progress.
+Provide:
+- back to articles button
+- persistent navbar
 
 ---
 
-# Step 5
+# Accessibility Requirements
 
-Handle success/error.
-
----
-
-# Step 6
-
-Redirect user to articles page.
-
----
-
-# Recommended Validation Logic
-
-Validate:
-- MIME type
-- extension
-- file size
-
-Do NOT rely ONLY on extension.
+Must support:
+- keyboard navigation
+- semantic labels
+- accessible buttons
+- proper focus states
+- screen reader compatibility
 
 ---
 
-# Type Safety Requirements
+# Mobile Requirements
 
-Create:
+Mobile:
+- stacked layout
+- collapsible provenance panel
+- full-width editor
 
-```txt
-/types/upload.types.ts
-```
-
-Include:
-- UploadResponse
-- UploadStatus
-- UploadError
-
----
-
-# Authentication Requirements
-
-Upload page must:
-- require authenticated user
-- use existing auth flow/token injection
-
-Do NOT implement auth again.
+Avoid:
+- tiny sidebars
+- cramped controls
 
 ---
 
 # Future-Proofing Considerations
 
 Prepare architecture for future:
-- multi-file uploads
-- drag-and-drop
-- resumable uploads
-- upload history
+- autosave
+- collaborative editing
+- AI regeneration
+- realtime sync
+- rich text editing
 
-BUT do NOT implement now.
+BUT do NOT implement them now.
 
 ---
 
@@ -560,39 +586,39 @@ BUT do NOT implement now.
 
 # DO NOT
 
-## 1. Read Entire File Into Memory Manually
+## 1. Replace Entire Draft On Every Save
 
-Use FormData directly.
-
----
-
-## 2. Upload Multiple Files
-
-Single file only.
+Use partial operations.
 
 ---
 
-## 3. Add Complex Upload Libraries
+## 2. Add Rich Text Editor Prematurely
 
-Native file input is enough.
-
----
-
-## 4. Skip Client Validation
-
-Validate before upload request.
+Textarea editing is enough initially.
 
 ---
 
-## 5. Put Upload Logic Inside Components
+## 3. Use Autosave Immediately
 
-Use mutation hooks + service layer.
+Explicit save button first.
 
 ---
 
-## 6. Ignore Upload Progress
+## 4. Ignore Optimistic Updates
 
-Progress feedback is important UX.
+Saving should feel responsive.
+
+---
+
+## 5. Put Fetch Logic Inside Components
+
+Use hooks + service layer.
+
+---
+
+## 6. Store Local Editor State Globally
+
+Use React Hook Form locally.
 
 ---
 
@@ -600,22 +626,23 @@ Progress feedback is important UX.
 
 Implement:
 
-- upload page
-- upload card UI
-- file selection
-- client validation
-- upload mutation
-- upload progress UI
-- loading/error/success states
-- redirect after upload
-- responsive layout
-- typed upload service
+- draft editor route
+- draft fetch query
+- editable structured fields
+- provenance sidebar
+- partial save mutation
+- optimistic updates
+- loading/error states
+- manual save button
+- save status indicator
+- responsive editor layout
 
 Do NOT implement:
-- realtime job tracking
-- article editor
-- websockets
-- drag-and-drop libraries
-- multi-file uploads
+- collaborative editing
+- autosave
+- block editors
+- rich text editors
+- realtime updates
+- AI regeneration
 
-Focus ONLY on scalable single `.docx` upload UX.
+Focus ONLY on scalable structured article editing infrastructure.

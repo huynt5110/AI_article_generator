@@ -5,7 +5,7 @@ import { DraftStatus } from '@/types/article.types';
 
 export function useArticles(status?: DraftStatus) {
   return useInfiniteQuery({
-    queryKey: [queryKeys.articles, status],
+    queryKey: [...queryKeys.articles, status],
     queryFn: ({ pageParam }) =>
       draftsService.getDrafts({
         cursor: pageParam,
@@ -16,6 +16,6 @@ export function useArticles(status?: DraftStatus) {
     getNextPageParam: (lastPage) => lastPage.meta.hasNextPage ? lastPage.meta.nextCursor : undefined,
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 30, // 30 minutes
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
   });
 }

@@ -5,10 +5,32 @@ export interface DraftArticle {
   uploadId: string;
   title: string | null;
   hook: string | null;
-  structuredContent: any;
+  structuredContent: StructuredContent;
   status: DraftStatus;
   createdAt: string;
   updatedAt: string;
+  provenances?: ProvenanceItem[];
+}
+
+export interface StructuredContent {
+  sections: Array<{ heading: string; body: string }>;
+  bestFor: string[];
+  notFor: string[];
+  keyFacts: Record<string, any>;
+  ethicsNotes?: string[];
+}
+
+export interface ProvenanceItem {
+  id: string;
+  fieldPath: string;
+  sourceParagraphKey: string;
+  userModified: boolean;
+  sourceText?: string;
+}
+
+export interface UpdateOperation {
+  path: string;
+  value: any;
 }
 
 export interface PaginatedDraftResponse {

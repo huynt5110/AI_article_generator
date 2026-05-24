@@ -48,10 +48,9 @@ export function ArticleCard({ article }: ArticleCardProps) {
       </CardContent>
       <CardFooter className="pt-4 border-t flex justify-between items-center">
         <span className="text-xs text-zinc-400 font-medium">Updated {formattedDate}</span>
-        <Link href={`/articles/${article.id}/edit`}>
+        <Link href={`/articles/${article.id}`}>
           <Button variant="ghost" size="sm" className="gap-2">
-            <Pencil className="w-4 h-4" />
-            Edit
+            View Details
           </Button>
         </Link>
       </CardFooter>

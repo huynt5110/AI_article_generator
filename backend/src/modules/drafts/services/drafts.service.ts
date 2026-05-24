@@ -58,6 +58,10 @@ export class DraftsService {
     // 2. Apply partial updates using Strategy Pattern (JsonPatchApplicator)
     const updatedContent = this.patchApplicator.apply(draft.structuredContent, dto.operations);
     
+    // Sync top-level fields into structuredContent to avoid stale duplicate data
+    if (dto.title !== undefined) updatedContent.title = dto.title;
+    if (dto.hook !== undefined) updatedContent.hook = dto.hook;
+
     const modifiedProvenanceIds: string[] = [];
 
     // Track provenance modifications
@@ -69,7 +73,10 @@ export class DraftsService {
     }
 
     // 3. Save
-    await this.repository.updatePartial(id, updatedContent, modifiedProvenanceIds);
+    await this.repository.updatePartial(id, updatedContent, modifiedProvenanceIds, {
+      title: dto.title,
+      hook: dto.hook,
+    });
     return this.getDraftDetail(user, id);
   }
 

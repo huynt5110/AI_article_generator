@@ -88,12 +88,17 @@ export class PrismaDraftsRepository implements IDraftsRepository {
   async updatePartial(
     draftId: string, 
     structuredContent: any, 
-    modifiedProvenanceIds: string[]
+    modifiedProvenanceIds: string[],
+    updates?: { title?: string; hook?: string }
   ) {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const updatedDraft = await tx.articleDraft.update({
         where: { id: draftId },
-        data: { structuredContent },
+        data: { 
+          structuredContent,
+          ...(updates?.title !== undefined && { title: updates.title }),
+          ...(updates?.hook !== undefined && { hook: updates.hook }),
+        },
       });
 
       if (modifiedProvenanceIds.length > 0) {
