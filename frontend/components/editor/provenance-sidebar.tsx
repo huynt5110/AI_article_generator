@@ -38,7 +38,24 @@ export function ProvenanceSidebar({ provenances, dirtyFields }: ProvenanceSideba
         <div className="space-y-6">
           {provenances.map((prov) => {
             const modified = prov.userModified || isFieldModified(prov.fieldPath);
-            const fieldName = prov.fieldPath.split('.').pop()?.replace(/([A-Z])/g, ' $1').trim() || 'Field';
+            
+            // Format sections[0].body -> Section 1 - Body
+            const formatFieldPath = (path: string) => {
+              let friendly = path;
+              
+              // Keep section index, e.g., sections[0] -> Section 1
+              friendly = friendly.replace(/sections\[(\d+)\]/g, (_, index) => `Section ${parseInt(index, 10) + 1}`);
+              
+              // For all other arrays like bestFor[1], ethicsNotes[0], strip the index entirely
+              friendly = friendly.replace(/\[\d+\]/g, '');
+              
+              return friendly
+                .split('.')
+                .map(part => part.charAt(0).toUpperCase() + part.slice(1).replace(/([A-Z])/g, ' $1').trim())
+                .join(' - ');
+            };
+            
+            const fieldName = formatFieldPath(prov.fieldPath);
 
             return (
               <div key={prov.id} className="space-y-2">

@@ -54,7 +54,7 @@ export function KeyFactsPanel({ bestFor, notFor, keyFacts, ethicsNotes }: KeyFac
               <h3 className="text-sm font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-500">Best For</h3>
               <div className="flex flex-wrap gap-2">
                 {bestFor.map((item, i) => (
-                  <Badge key={i} variant="outline" className="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
+                  <Badge key={i} variant="outline" className="h-auto whitespace-normal text-left py-1 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
                     {item}
                   </Badge>
                 ))}
@@ -67,7 +67,7 @@ export function KeyFactsPanel({ bestFor, notFor, keyFacts, ethicsNotes }: KeyFac
               <h3 className="text-sm font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-500">Not For</h3>
               <div className="flex flex-wrap gap-2">
                 {notFor.map((item, i) => (
-                  <Badge key={i} variant="outline" className="bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800">
+                  <Badge key={i} variant="outline" className="h-auto whitespace-normal text-left py-1 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800">
                     {item}
                   </Badge>
                 ))}

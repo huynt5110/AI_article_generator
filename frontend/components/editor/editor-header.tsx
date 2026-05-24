@@ -7,13 +7,14 @@ interface EditorHeaderProps {
   isSaving: boolean;
   isDirty: boolean;
   onSave: () => void;
+  id: string;
 }
 
-export function EditorHeader({ title, isSaving, isDirty, onSave }: EditorHeaderProps) {
+export function EditorHeader({ title, isSaving, isDirty, onSave, id }: EditorHeaderProps) {
   return (
     <div className="sticky top-0 z-10 flex items-center justify-between bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md border-b px-6 py-4">
       <div className="flex items-center gap-4">
-        <Link href="/articles" className={`text-zinc-500 flex items-center justify-center w-8 h-8 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800`}>
+        <Link href={`/articles/${id}`} className={`text-zinc-500 flex items-center justify-center w-8 h-8 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800`}>
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div className="flex flex-col">
@@ -30,8 +31,8 @@ export function EditorHeader({ title, isSaving, isDirty, onSave }: EditorHeaderP
             <Check className="h-3 w-3" /> Saved
           </span>
         )}
-        <Button 
-          onClick={onSave} 
+        <Button
+          onClick={onSave}
           disabled={!isDirty || isSaving}
           className="min-w-[100px]"
         >

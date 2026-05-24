@@ -32,28 +32,28 @@ export function ArticleCard({ article }: ArticleCardProps) {
   });
 
   return (
-    <Card className="flex flex-col transition-all hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700">
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-start gap-4">
-          <CardTitle className="text-xl leading-tight line-clamp-2">
-            {article.title || 'Untitled Draft'}
-          </CardTitle>
-          {getStatusBadge(article.status)}
-        </div>
-      </CardHeader>
-      <CardContent className="flex-1">
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-3">
-          {article.hook || 'No excerpt available. Open to see the structured content.'}
-        </p>
-      </CardContent>
-      <CardFooter className="pt-4 border-t flex justify-between items-center">
-        <span className="text-xs text-zinc-400 font-medium">Updated {formattedDate}</span>
-        <Link href={`/articles/${article.id}`}>
-          <Button variant="ghost" size="sm" className="gap-2">
+    <Link href={`/articles/${article.id}`} className="group block outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xl">
+      <Card className="flex flex-col h-full transition-all hover:shadow-md hover:border-zinc-300 dark:hover:border-zinc-700">
+        <CardHeader className="pb-3">
+          <div className="flex justify-between items-start gap-4">
+            <CardTitle className="text-xl leading-tight line-clamp-2">
+              {article.title || 'Untitled Draft'}
+            </CardTitle>
+            {getStatusBadge(article.status)}
+          </div>
+        </CardHeader>
+        <CardContent className="flex-1">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-3">
+            {article.hook || 'No excerpt available. Open to see the structured content.'}
+          </p>
+        </CardContent>
+        <CardFooter className="pt-4 border-t flex justify-between items-center">
+          <span className="text-xs text-zinc-400 font-medium">Updated {formattedDate}</span>
+          <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-zinc-50">
             View Details
-          </Button>
-        </Link>
-      </CardFooter>
-    </Card>
+          </span>
+        </CardFooter>
+      </Card>
+    </Link>
   );
 }

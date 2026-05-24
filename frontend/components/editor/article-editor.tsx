@@ -91,9 +91,10 @@ export function ArticleEditor({ draft }: ArticleEditorProps) {
         isSaving={mutation.isPending}
         isDirty={isDirty}
         onSave={handleSubmit(onSubmit)}
+        id={draft.id}
       />
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           <div className="max-w-3xl mx-auto p-6 md:p-10 space-y-12">
 
@@ -150,7 +151,7 @@ export function ArticleEditor({ draft }: ArticleEditorProps) {
           </div>
         </div>
 
-        <div className="hidden lg:block w-[350px] border-l bg-white dark:bg-zinc-950">
+        <div className="w-full lg:w-[350px] shrink-0 border-t lg:border-t-0 lg:border-l bg-white dark:bg-zinc-950">
           <ProvenanceSidebar
             provenances={draft.provenances}
             dirtyFields={dirtyFields}
