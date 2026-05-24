@@ -50,6 +50,7 @@ export class GeminiExtractionService {
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         responseMimeType: 'application/json',
+        maxOutputTokens: 14000,
       },
     });
 
