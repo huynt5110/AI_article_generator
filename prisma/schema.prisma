@@ -12,11 +12,11 @@ model User {
   passwordHash  String
   firstName     String
   lastName      String
-  refreshTokens RefreshToken[]
-  organizations OrganizationMember[]
-  uploads       Upload[]
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
+  organizations OrganizationMember[]
+  refreshTokens RefreshToken[]
+  uploads       Upload[]
 
   @@map("users")
 }
@@ -25,14 +25,153 @@ model RefreshToken {
   id        String    @id @default(cuid())
   tokenHash String
   userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([tokenHash])
   @@map("refresh_tokens")
+}
+
+model Organization {
+  id        String               @id @default(cuid())
+  name      String
+  slug      String               @unique
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  members   OrganizationMember[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  role           Role         @default(MEMBER)
+  userId         String
+  organizationId String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+  @@map("organization_members")
+}
+
+model Upload {
+  id             String          @id @default(cuid())
+  userId         String
+  originalName   String
+  mimeType       String
+  size           Int
+  s3Key          String
+  bucket         String
+  status         UploadStatus    @default(UPLOADING)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  articleDraft   ArticleDraft?
+  document       Document?
+  extractionJobs ExtractionJob[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("uploads")
+}
+
+model ArticleDraft {
+  id                String            @id @default(cuid())
+  uploadId          String            @unique
+  title             String?
+  hook              String?
+  structuredContent Json
+  status            DraftStatus       @default(DRAFT)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  upload            Upload            @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  provenances       Provenance[]
+  revisions         ArticleRevision[]
+
+  @@index([status])
+  @@index([updatedAt])
+  @@index([createdAt])
+  @@index([uploadId])
+  @@map("article_drafts")
+}
+
+model DocumentParagraph {
+  id           String   @id @default(cuid())
+  documentId   String
+  paragraphKey String
+  text         String
+  orderIndex   Int
+  createdAt    DateTime @default(now())
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, paragraphKey])
+  @@index([documentId])
+  @@map("document_paragraphs")
+}
+
+model Document {
+  id                 String              @id @default(cuid())
+  uploadId           String              @unique
+  extractedText      String
+  createdAt          DateTime            @default(now())
+  documentParagraphs DocumentParagraph[]
+  upload             Upload              @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+model ExtractionJob {
+  id            String              @id @default(cuid())
+  uploadId      String
+  status        ExtractionJobStatus @default(QUEUED)
+  model         String?
+  promptVersion String?
+  tokenInput    Int?
+  tokenOutput   Int?
+  latencyMs     Int?
+  errorMessage  String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime
+  upload        Upload              @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([uploadId])
+  @@map("extraction_jobs")
+}
+
+model Provenance {
+  id                 String       @id @default(cuid())
+  articleDraftId     String
+  fieldPath          String
+  sourceParagraphKey String
+  sourceText         String
+  userModified       Boolean      @default(false)
+  createdAt          DateTime     @default(now())
+  articleDraft       ArticleDraft @relation(fields: [articleDraftId], references: [id], onDelete: Cascade)
+
+  @@index([articleDraftId])
+  @@map("provenances")
+}
+
+model ArticleRevision {
+  id             String       @id @default(cuid())
+  articleDraftId String
+  articleDraft   ArticleDraft @relation(fields: [articleDraftId], references: [id], onDelete: Cascade)
+  editedByUserId String
+  snapshot       Json
+  createdAt      DateTime     @default(now())
+
+  @@index([articleDraftId])
+  @@map("article_revisions")
 }
 
 enum Role {
@@ -41,55 +180,24 @@ enum Role {
   MEMBER
 }
 
-model Organization {
-  id        String               @id @default(cuid())
-  name      String
-  slug      String               @unique
-  members   OrganizationMember[]
-  createdAt DateTime             @default(now())
-  updatedAt DateTime             @updatedAt
-
-  @@map("organizations")
-}
-
-model OrganizationMember {
-  id             String       @id @default(cuid())
-  role           Role         @default(MEMBER)
-  
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  @@unique([userId, organizationId])
-  @@index([userId])
-  @@index([organizationId])
-  @@map("organization_members")
-}
-
 enum UploadStatus {
-  PENDING
   UPLOADING
   UPLOADED
   FAILED
 }
 
-model Upload {
-  id            String       @id @default(cuid())
-  userId        String
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  originalName  String
-  mimeType      String
-  size          Int?
-  s3Key         String
-  bucket        String
-  status        UploadStatus @default(PENDING)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+enum DraftStatus {
+  DRAFT
+  REVIEW_REQUIRED
+  READY
+  PUBLISHED
+}
 
-  @@map("uploads")
+enum ExtractionJobStatus {
+  QUEUED
+  PARSING
+  EXTRACTING
+  VALIDATING
+  COMPLETED
+  FAILED
 }

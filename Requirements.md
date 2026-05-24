@@ -1,589 +1,681 @@
-# Next Stage — Backend File Upload System via AWS S3 Presigned URLs
+# Next Stage — Draft Article Listing & Editing System
 
 # Goal
 
-Implement backend infrastructure that allows authenticated users to upload `.docx` travel note files securely using AWS S3 presigned URLs.
+Implement backend APIs and architecture for:
+- listing generated draft articles
+- viewing draft details
+- editing structured article fields
+- tracking revisions
+- preserving provenance mappings
 
 IMPORTANT:
-This stage is BACKEND ONLY.
+This stage is CRUD + editorial workflow ONLY.
 
 Do NOT implement:
-- frontend
-- React components
-- upload UI
-- drag & drop UI
+- AI generation
+- queue workers
+- frontend UI
+- collaborative editing
+- realtime sync
 
-Only implement:
-- NestJS backend
-- Prisma schema
-- S3 integration
-- upload APIs
+Focus ONLY on:
+- scalable article management APIs
+- structured editing
+- provenance-safe updates
+- revision tracking
+
+---
+
+# Core Product Requirements
+
+Users must be able to:
+
+1. View all generated draft articles
+2. Filter/search drafts
+3. Open draft details
+4. Edit any article field
+5. Save changes
+6. Preserve provenance information
+7. Reopen drafts later
+8. Track updated timestamps
+
+---
+
+# Architectural Principle
+
+This feature should remain inside the main NestJS modular monolith.
+
+Do NOT create separate microservices for:
+- article editing
+- draft listing
+- provenance APIs
+
+Reason:
+- CRUD-heavy workload
+- tightly coupled data
+- no independent scaling pressure
+- low compute complexity
+
+The correct scalability boundary already exists:
+- AI worker service
+
+---
+
+# Recommended Architecture
+
+```txt
+/apps/api
+  ├── AuthModule
+  ├── UploadsModule
+  ├── DraftsModule
+  ├── ProvenanceModule
+  ├── RevisionsModule
+  └── JobsModule
+
+/apps/ai-worker
+  └── AI processing only
+```
+
+---
+
+# Drafts Module Responsibilities
+
+DraftsModule should handle:
+- article listing
+- draft retrieval
+- field editing
+- partial updates
+- revision creation
 - validation
-- secure upload flow
+- editorial states
+
+DraftsModule should NOT:
+- call OpenAI
+- parse `.docx`
+- process queues
 
 ---
 
-# Core Requirements
+# Recommended Database Design
 
-The upload system must:
-- support authenticated users
-- support `.docx` uploads ONLY
-- generate AWS S3 presigned upload URLs
-- upload files directly to S3
-- track uploads in database
-- validate upload completion
-- prepare for future AI processing pipeline
+# ArticleDraft Model
 
-IMPORTANT:
-The NestJS API should NEVER receive actual file binary uploads.
-
-The browser/client uploads directly to S3.
-
----
-
-# Supported File Types
-
-ONLY allow:
-
-```txt
-.docx
-```
-
-Allowed MIME type:
-
-```txt
-application/vnd.openxmlformats-officedocument.wordprocessingml.document
-```
-
-Reject:
-- pdf
-- doc
-- images
-- zip
-- executables
-- any other mime type
-
-This system is specifically for Word travel notes.
-
----
-
-# Architecture Overview
-
-```txt
-Client
-   |
-   | POST /uploads/presign
-   |
-NestJS API
-   |
-   | Generate presigned URL
-   |
-AWS S3
-   ^
-   |
-Client uploads directly
-```
-
----
-
-# Why Presigned URLs
-
-Do NOT upload through NestJS.
-
-Bad architecture:
-
-```txt
-Client -> NestJS -> S3
-```
-
-Problems:
-- memory pressure
-- bandwidth bottlenecks
-- expensive scaling
-- timeout risks
-- unnecessary API load
-
-Correct architecture:
-
-```txt
-Client -> S3 directly
-```
-
-NestJS only:
-- authenticates
-- validates
-- generates temporary upload URL
-- tracks upload state
-
----
-
-# Tech Stack
-
-## Backend
-
-- NestJS
-- Prisma
-- PostgreSQL
-
----
-
-# Storage
-
-- AWS S3
-
----
-
-# AWS SDK
-
-Use AWS SDK v3.
-
-Required packages:
-
-```bash
-npm install @aws-sdk/client-s3
-npm install @aws-sdk/s3-request-presigner
-```
-
----
-
-# Environment Variables
-
-```env
-AWS_REGION=ap-southeast-1
-
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-
-AWS_S3_BUCKET=travel-ai-files
-```
-
----
-
-# Database Design
-
-# Upload Model
-
-Add upload tracking model.
+Main editable article entity.
 
 ```prisma
-model Upload {
-  id            String   @id @default(cuid())
+model ArticleDraft {
+  id                  String   @id @default(cuid())
 
-  userId        String
-  user          User @relation(fields: [userId], references: [id])
+  uploadId            String   @unique
 
-  originalName  String
+  upload              Upload @relation(fields: [uploadId], references: [id])
 
-  mimeType      String
+  title               String?
 
-  size          Int?
+  hook                String?
 
-  s3Key         String
-  bucket        String
+  structuredContent   Json
 
-  status        UploadStatus @default(PENDING)
+  status              DraftStatus @default(DRAFT)
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 ```
 
 ---
 
-# Upload Status Enum
+# Why structuredContent Should Stay JSONB
+
+The article structure is dynamic.
+
+Example:
+
+```json
+{
+  "sections": [],
+  "bestFor": [],
+  "notFor": [],
+  "keyFacts": {},
+  "ethicsNotes": []
+}
+```
+
+JSONB allows:
+- flexible structure evolution
+- partial updates
+- nested editing
+- schema iteration
+- future AI enhancements
+
+This is the correct storage strategy.
+
+---
+
+# Draft Status Enum
 
 ```prisma
-enum UploadStatus {
-  PENDING
-  UPLOADING
-  UPLOADED
-  FAILED
+enum DraftStatus {
+  DRAFT
+  REVIEW_REQUIRED
+  READY
+  PUBLISHED
 }
 ```
 
 ---
 
-# Why Upload Table Is Important
+# Provenance Model
 
-Do NOT rely only on S3.
+Tracks source mapping.
 
-Database tracking is required for:
-- ownership validation
-- auditability
-- upload state tracking
-- future AI pipeline linkage
-- retries
-- cleanup
-- orphan detection
+```prisma
+model Provenance {
+  id                  String   @id @default(cuid())
+
+  articleDraftId      String
+
+  articleDraft        ArticleDraft @relation(fields: [articleDraftId], references: [id])
+
+  fieldPath           String
+
+  sourceParagraphKey  String
+
+  sourceText          String
+
+  createdAt           DateTime @default(now())
+}
+```
 
 ---
 
-# Recommended S3 Key Structure
+# Why Provenance Must Remain Separate
 
-Use deterministic structure.
+Provenance is:
+- metadata
+- explainability layer
+- source verification layer
 
-Example:
+Do NOT embed provenance inside article JSON.
 
-```txt
-uploads/{userId}/{uploadId}/original.docx
-```
+That creates:
+- duplication
+- bloated payloads
+- harder querying
+- difficult updates
 
-Example:
-
-```txt
-uploads/clx123/ul_abc123/original.docx
-```
-
-Benefits:
-- easier debugging
-- lifecycle policies
-- cleanup
-- avoids collisions
+Keep provenance normalized.
 
 ---
 
-# Upload Flow
+# Recommended Revision Tracking
 
-# Step 1 — Request Presigned URL
+VERY IMPORTANT.
 
-Authenticated client calls:
+Users will edit AI-generated content.
+
+You should track revisions.
+
+---
+
+# ArticleRevision Model
+
+```prisma
+model ArticleRevision {
+  id              String   @id @default(cuid())
+
+  articleDraftId  String
+
+  articleDraft    ArticleDraft @relation(fields: [articleDraftId], references: [id])
+
+  editedByUserId  String
+
+  snapshot        Json
+
+  createdAt       DateTime @default(now())
+}
+```
+
+---
+
+# Why Revisions Matter
+
+Future benefits:
+- undo support
+- audit history
+- AI regeneration comparison
+- debugging
+- collaborative editing later
+
+This is worth implementing early.
+
+---
+
+# Recommended API Endpoints
+
+# List Drafts
 
 ```http
-POST /uploads/presign
+GET /drafts
 ```
 
-Request body:
+Supports:
+- pagination
+- filtering
+- sorting
+
+---
+
+# Draft Detail
+
+```http
+GET /drafts/:id
+```
+
+Returns:
+- article data
+- provenance mappings
+- metadata
+
+---
+
+# Update Draft
+
+```http
+PATCH /drafts/:id
+```
+
+Supports:
+- partial updates
+- nested JSON updates
+
+---
+
+# List Revisions
+
+```http
+GET /drafts/:id/revisions
+```
+
+---
+
+# Restore Revision
+
+```http
+POST /drafts/:id/revisions/:revisionId/restore
+```
+
+Optional for now.
+
+---
+
+# Recommended API Response Shape
+
+# List Drafts Response
 
 ```json
 {
-  "fileName": "komodo-trip.docx",
-  "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "size": 1048576
-}
-```
-
----
-
-# Step 2 — Backend Validation
-
-Validate:
-- authenticated user
-- `.docx` extension
-- exact MIME type
-- file size limits
-
-Reject all other file types.
-
----
-
-# Step 3 — Generate Presigned PUT URL
-
-Backend:
-- generates upload ID
-- generates S3 key
-
-Generate temporary S3 upload URL.
-
-Recommended expiration:
-
-```txt
-5 minutes
-```
-
----
-
-# Step 4 — Create Upload Record
-
-Backend:
-- inserts upload row using the generated ID and key
-
-Initial status:
-
-```txt
-PENDING
-```
-
-Return:
-
-```json
-{
-  "data": {
-    "uploadId": "ul_123",
-    "uploadUrl": "https://s3....",
-    "s3Key": "uploads/user123/ul_123/original.docx"
+  "data": [
+    {
+      "id": "draft_123",
+      "title": "Komodo Boat Adventure",
+      "status": "DRAFT",
+      "updatedAt": "2025-01-01"
+    }
+  ],
+  "meta": {
+    "cursor": "...",
+    "hasNextPage": true
   }
 }
 ```
 
 ---
 
-# Step 5 — Client Uploads Directly to S3
+# Draft Detail Response
 
-Client uploads file directly to S3 using PUT request.
-
-NestJS is bypassed entirely for file transfer.
+```json
+{
+  "data": {
+    "id": "draft_123",
+    "title": "Komodo Boat Adventure",
+    "hook": "...",
+    "structuredContent": {},
+    "provenance": []
+  }
+}
+```
 
 ---
 
-# Step 6 — Confirm Upload Completion
+# Editing Strategy
 
-Client calls:
+IMPORTANT:
+Do NOT replace entire JSON document for every small edit.
+
+Support:
+- partial field updates
+
+---
+
+# Example Edit Request
 
 ```http
-POST /uploads/:id/complete
+PATCH /drafts/:id
 ```
 
-Backend:
-- verifies S3 object exists
-- validates object metadata
-- updates upload status
-
-Final status:
-
-```txt
-UPLOADED
+```json
+{
+  "operations": [
+    {
+      "path": "hook",
+      "value": "A magical overnight Komodo journey."
+    },
+    {
+      "path": "structuredContent.keyFacts.priceRange",
+      "value": "$140–$180"
+    }
+  ]
+}
 ```
 
 ---
 
-# Why Completion Endpoint Is Important
+# Why Partial Updates Matter
 
-Do NOT trust client upload completion blindly.
+Replacing entire JSON:
+- increases payload size
+- creates race conditions
+- harder for future collaboration
+- inefficient
 
-Possible failures:
-- upload cancelled
-- partial upload
-- expired upload URL
-- empty object
+Partial updates scale better.
 
-Backend must verify object existence in S3 before confirming upload.
+---
+
+# Recommended Internal Update Strategy
+
+Use PostgreSQL JSONB update operations.
+
+Example:
+
+```sql
+jsonb_set(...)
+```
+
+This avoids rewriting entire JSON blobs.
+
+---
+
+# Provenance Editing Rules
+
+IMPORTANT:
+User edits may invalidate provenance.
+
+Example:
+
+AI generated:
+
+```txt
+Price: $140
+```
+
+Source:
+- paragraph p12
+
+User edits to:
+
+```txt
+Price: $500
+```
+
+Original provenance may no longer be valid.
+
+---
+
+# Recommended Provenance Behavior
+
+# Option 1 (Recommended)
+
+Keep provenance unchanged but mark field as:
+
+```txt
+user_modified = true
+```
+
+---
+
+# Example
+
+```prisma
+model Provenance {
+  id                  String
+
+  fieldPath           String
+
+  sourceParagraphKey  String
+
+  sourceText          String
+
+  userModified        Boolean @default(false)
+}
+```
+
+This preserves:
+- auditability
+- original AI source
+- editorial transparency
+
+---
+
+# Recommended Query Features
+
+# List Drafts
+
+Support:
+- cursor pagination
+- filtering by status
+- sorting by updatedAt
+
+---
+
+# Optional Search Later
+
+Do NOT implement full-text search yet.
+
+Simple:
+- title contains
+- status filters
+
+is enough initially.
+
+---
+
+# Recommended Pagination
+
+Use cursor pagination.
+
+Do NOT use offset pagination for large datasets.
+
+Example:
+
+```http
+GET /drafts?cursor=abc123&limit=20
+```
+
+---
+
+# Recommended Database Indexes
+
+VERY IMPORTANT.
+
+Add indexes for:
+
+```prisma
+@@index([status])
+@@index([updatedAt])
+@@index([createdAt])
+@@index([uploadId])
+```
 
 ---
 
 # Recommended NestJS Module Structure
 
 ```txt
-src/modules/uploads/
+src/modules/drafts/
+├── controllers/
+├── services/
+├── repositories/
 ├── dto/
-│   ├── create-presigned-url.dto.ts
-│   └── complete-upload.dto.ts
-│
-├── uploads.controller.ts
-├── uploads.service.ts
-├── uploads.module.ts
-│
-├── storage/
-│   ├── s3.service.ts
-│   └── storage.interface.ts
-│
-└── validators/
+├── validators/
+├── mappers/
+└── drafts.module.ts
 ```
 
 ---
-
-# Architectural Principle
-
-Separate:
-- upload business logic
-- storage provider implementation
-
-Do NOT tightly couple uploads service to raw AWS SDK usage.
-
-Use abstraction:
-
-```ts
-interface StorageProvider {
-  generatePresignedUploadUrl(): Promise<string>;
-}
-```
-
-Benefits:
-- testability
-- provider swapping
-- cleaner architecture
-- easier mocking
-
----
-
-# API Endpoints
-
-# Generate Presigned Upload URL
-
-```http
-POST /uploads/presign
-```
-
-Authenticated route.
-
----
-
-# Confirm Upload Completion
-
-```http
-POST /uploads/:id/complete
-```
-
-Authenticated route.
-
----
-
-# Get Upload Metadata
-
-```http
-GET /uploads/:id
-```
-
-Authenticated route.
-
----
-
-# Validation Requirements
-
-# CreatePresignedUrlDto
-
-```ts
-fileName: string;
-mimeType: string;
-size: number;
-```
-
----
-
-# Validation Rules
-
-# File Extension
-
-ONLY allow:
-
-```txt
-.docx
-```
-
----
-
-# MIME Type
-
-ONLY allow:
-
-```txt
-application/vnd.openxmlformats-officedocument.wordprocessingml.document
-```
-
----
-
-# File Size Limit
-
-Recommended:
-
-```txt
-10MB max
-```
-
-Prevent:
-- abuse
-- storage attacks
-- excessive costs
-
----
-
-# Security Requirements
 
 # IMPORTANT
 
-## Never Trust Client Metadata
+Do NOT put Prisma queries directly in controllers.
+
+Use:
+- services
+- repositories
+
+Maintain clean boundaries.
+
+---
+
+# Recommended Repository Pattern
+
+Example:
+
+```ts
+interface DraftRepository {
+  findById()
+  list()
+  updatePartial()
+}
+```
+
+This helps:
+- testability
+- future extraction
+- cleaner architecture
+
+---
+
+# Recommended Validation Rules
 
 Validate:
-- extension
-- MIME type
-- size
+- title length
+- section limits
+- malformed JSON paths
+- invalid update operations
 
-Client input is untrusted.
-
----
-
-# S3 Bucket Security
-
-Bucket should:
-- remain private
-- disable public ACLs
-- use presigned URLs only
-
-Do NOT expose public upload buckets.
+Never trust client payloads.
 
 ---
 
-# Presigned URL Expiration
+# Recommended Update Flow
 
-Short expiration only.
+# Step 1
 
-Recommended:
-
-```txt
-5 minutes
-```
+Validate ownership.
 
 ---
 
-# Store S3 Keys — NOT Public URLs
+# Step 2
 
-Store:
-- bucket name
-- S3 key
-
-Do NOT store:
-- temporary signed URLs
-- public URLs
-
-Generate signed download URLs later if needed.
+Validate update operations.
 
 ---
 
-# Recommended Service Responsibilities
+# Step 3
 
-# UploadsService
-
-Responsibilities:
-- validation
-- upload orchestration
-- DB writes
-- upload completion flow
-
-Should NOT:
-- contain raw AWS SDK complexity
+Create revision snapshot.
 
 ---
 
-# S3Service
+# Step 4
 
-Responsibilities:
-- generate presigned URLs
-- verify object existence
-- storage operations
+Apply partial JSONB updates.
 
 ---
 
-# Future Compatibility
+# Step 5
 
-This upload system must prepare for future async AI workflows.
+Mark provenance entries as modified if needed.
 
-Future flow:
+---
 
-```txt
-upload.completed
-   |
-queue extraction job
-   |
-AI worker downloads file
-   |
-parse .docx
-   |
-generate structured article draft
-```
+# Step 6
 
-So uploads should later connect to:
-- documents
-- extraction jobs
-- article drafts
+Return updated draft.
+
+---
+
+# Future-Proofing Considerations
+
+Design now for:
+- collaborative editing later
+- realtime editing later
+- AI regeneration later
+
+WITHOUT implementing them now.
+
+---
+
+# IMPORTANT
+
+Do NOT:
+- add websockets
+- add CRDTs
+- add operational transforms
+
+Premature complexity.
+
+---
+
+# Scalability Strategy
+
+This module scales through:
+- horizontal API scaling
+- PostgreSQL indexing
+- cursor pagination
+- Redis caching later
+
+NOT microservices.
+
+---
+
+# Why Monolith Is Correct Here
+
+Draft editing is:
+- database-centric
+- transactional
+- tightly coupled
+
+Microservices would add:
+- distributed transactions
+- API orchestration
+- consistency problems
+
+without solving a real bottleneck.
+
+---
+
+# Recommended Future Extraction Candidates
+
+Potential future services:
+- search/indexing
+- embeddings/vector search
+- realtime collaboration
+- analytics pipeline
+
+NOT draft CRUD.
 
 ---
 
@@ -591,49 +683,39 @@ So uploads should later connect to:
 
 # DO NOT
 
-## 1. Upload Files Through NestJS
+## 1. Store Entire Draft As Flat Markdown
 
-Bad:
-
-```txt
-Client -> API -> S3
-```
-
-Use direct S3 upload.
+Use structured JSON.
 
 ---
 
-## 2. Allow Multiple File Types
+## 2. Replace Entire JSON On Every Edit
 
-ONLY `.docx`.
-
-Do NOT prematurely support:
-- pdf
-- images
-- doc
-- txt
-
-Keep scope strict.
+Use partial updates.
 
 ---
 
-## 3. Trust Upload Completion Calls
+## 3. Embed Provenance Inside JSON
 
-Always verify object existence in S3.
-
----
-
-## 4. Skip Upload Tracking Table
-
-Upload tracking is required.
+Keep provenance normalized.
 
 ---
 
-## 5. Spread AWS SDK Logic Everywhere
+## 4. Skip Revision Tracking
 
-Centralize inside:
-- S3Service
-- StorageProvider abstraction
+Users WILL want undo/history later.
+
+---
+
+## 5. Put Prisma Everywhere
+
+Use repositories/services.
+
+---
+
+## 6. Prematurely Microservice Draft Editing
+
+No operational scaling benefit.
 
 ---
 
@@ -641,23 +723,22 @@ Centralize inside:
 
 Implement:
 
-- Upload Prisma model
-- Upload status enum
-- Upload module
-- S3 service
-- Presigned URL generation
-- Upload completion endpoint
-- `.docx` validation
-- MIME type validation
-- file size validation
-- authenticated upload routes
-- S3 object verification
+- Draft listing endpoint
+- Draft detail endpoint
+- Partial draft updates
+- JSONB partial updates
+- Provenance retrieval
+- Revision snapshots
+- Pagination
+- Filtering
+- DB indexes
+- Ownership validation
 
 Do NOT implement:
-- frontend
-- drag & drop UI
-- AI processing
-- queues
-- document parsing
+- realtime editing
+- collaborative editing
+- comments
+- publishing workflows
+- websockets
 
-Focus ONLY on backend upload infrastructure.
+Focus ONLY on scalable editorial CRUD infrastructure.

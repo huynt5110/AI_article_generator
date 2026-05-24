@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { CacheModule } from '@nestjs/cache-manager';
 
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
@@ -16,6 +17,7 @@ import { OrganizationsModule } from './modules/organizations/organizations.modul
 
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { UploadsModule } from './modules/uploads/uploads.module';
+import { DraftsModule } from './modules/drafts/drafts.module';
 
 @Module({
   imports: [
@@ -24,12 +26,17 @@ import { UploadsModule } from './modules/uploads/uploads.module';
       load: [appConfig, databaseConfig, jwtConfig, s3Config],
       validate,
     }),
+    CacheModule.register({
+      isGlobal: true,
+      ttl: 60000,
+    }),
     PrismaModule,
     AuthModule,
     UsersModule,
     HealthModule,
     OrganizationsModule,
     UploadsModule,
+    DraftsModule,
   ],
   providers: [
     {
