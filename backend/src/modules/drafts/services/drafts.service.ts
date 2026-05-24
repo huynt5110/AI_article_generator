@@ -18,14 +18,14 @@ export class DraftsService {
   ) {}
 
   async listDrafts(user: any, cursor?: string, limit = 20, status?: DraftStatus) {
-    const organizationIds = this.accessPolicy.getUserOrgIds(user);
-    if (organizationIds.length === 0) return { data: [], meta: { hasNextPage: false } };
-
+    const organizationIds = await this.accessPolicy.getUserOrgIds(user);
+    
     const { data, nextCursor } = await this.repository.list({
       cursor,
       limit,
       status,
       organizationIds,
+      userId: user.sub,
     });
 
     return {
@@ -41,7 +41,7 @@ export class DraftsService {
     const draft = await this.repository.findById(id);
     
     // Evaluate Access Policy
-    this.accessPolicy.enforceCanView(user, draft);
+    await this.accessPolicy.enforceCanView(user, draft);
 
     return this.draftMapper.toResponseDto(draft);
   }
@@ -53,7 +53,7 @@ export class DraftsService {
     this.accessPolicy.enforceCanEdit(user, draft);
 
     // 1. Create Revision snapshot
-    await this.repository.createRevision(id, user.id, draft.structuredContent);
+    await this.repository.createRevision(id, user.sub, draft.structuredContent);
 
     // 2. Apply partial updates using Strategy Pattern (JsonPatchApplicator)
     const updatedContent = this.patchApplicator.apply(draft.structuredContent, dto.operations);
@@ -76,7 +76,7 @@ export class DraftsService {
   async listRevisions(user: any, id: string) {
     // Check access first
     const draft = await this.repository.findById(id);
-    this.accessPolicy.enforceCanView(user, draft);
+    await this.accessPolicy.enforceCanView(user, draft);
     
     return this.repository.listRevisions(id);
   }

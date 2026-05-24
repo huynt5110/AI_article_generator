@@ -34,19 +34,25 @@ export class PrismaDraftsRepository implements IDraftsRepository {
     limit: number;
     status?: DraftStatus;
     organizationIds: string[];
+    userId: string;
   }) {
-    const { cursor, limit, status, organizationIds } = params;
+    const { cursor, limit, status, organizationIds, userId } = params;
 
     const where: Prisma.ArticleDraftWhereInput = {
-      upload: {
-        user: {
-          organizations: {
-            some: {
-              organizationId: { in: organizationIds }
+      OR: [
+        { upload: { userId: userId } },
+        organizationIds.length > 0 ? {
+          upload: {
+            user: {
+              organizations: {
+                some: {
+                  organizationId: { in: organizationIds }
+                }
+              }
             }
           }
-        }
-      },
+        } : null,
+      ].filter(Boolean) as Prisma.ArticleDraftWhereInput[],
       ...(status && { status }),
     };
 

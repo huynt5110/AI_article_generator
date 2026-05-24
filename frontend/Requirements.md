@@ -1,38 +1,62 @@
-# Next Stage — Articles List Page + Navigation
+# Next Stage — Upload Page (.docx Upload Flow)
 
 # Goal
 
-Implement the authenticated application layout and articles list screen using:
+Implement the upload page where authenticated users can:
+- upload `.docx` travel notes files
+- track upload progress
+- trigger backend extraction job creation
+- view upload states
+- handle validation/errors cleanly
+
+Use:
 - Next.js App Router
 - TypeScript
 - TailwindCSS
 - shadcn/ui
 - TanStack React Query
-
-This stage should allow users to:
-- view list of article drafts
-- paginate through drafts
-- navigate to edit page
-- navigate to upload page
-- view article metadata
-- use authenticated navbar layout
+- Axios
 
 IMPORTANT:
 Focus ONLY on:
-- app shell
-- navbar
-- articles list page
-- list item cards/table
-- pagination
-- loading/empty/error states
-- navigation
+- upload page UI
+- file validation
+- upload request flow
+- upload progress
+- loading/error/success states
 
 Do NOT implement:
 - article editor
-- upload functionality
-- AI generation
-- realtime updates
-- search indexing
+- AI processing UI
+- realtime websocket updates
+- drag-and-drop libraries
+- multi-file uploads
+
+Single `.docx` upload only.
+
+---
+
+# Upload Flow Requirements
+
+Current backend behavior:
+
+```txt
+Client
+  →
+NestJS API
+  →
+API uploads file to S3
+  →
+API creates extraction job
+  →
+API returns immediately
+```
+
+Frontend only needs to:
+1. upload file
+2. show progress/loading
+3. show success/error state
+4. redirect or navigate to articles page
 
 ---
 
@@ -47,376 +71,342 @@ Do NOT implement:
 
 ---
 
-# Application Layout Requirements
+# Route Requirements
 
-Create authenticated application layout.
-
-Recommended structure:
+Create route:
 
 ```txt
-/app
-  /(dashboard)
-    /articles
-    /upload
+/upload
 ```
 
----
-
-# Main Layout Requirements
-
-Create:
-- top navbar
-- responsive container
-- content area
-
-Navbar should contain:
-- app logo/name
-- Articles link
-- Upload link
-- user avatar/menu placeholder
+This route must:
+- require authentication
+- use existing app shell/navbar
+- match overall editorial/minimal design system
 
 ---
 
-# Navbar Requirements
+# Page Layout Requirements
 
-Desktop navbar:
+Layout should feel:
+- focused
+- clean
+- editorial
+- premium SaaS
+
+Avoid:
+- clutter
+- huge upload zones
+- excessive gradients
+- playful UI
+
+---
+
+# Upload UI Requirements
+
+Page should contain:
+
+# Header
+
+Example:
 
 ```txt
----------------------------------------------------
-Logo      Articles      Upload        User Avatar
----------------------------------------------------
+Upload Travel Notes
 ```
 
-Mobile:
-- responsive menu
-- collapsible navigation
-
----
-
-# Navigation Requirements
-
-Navbar links:
-
-| Label | Route |
-|---|---|
-| Articles | /articles |
-| Upload | /upload |
-
-Active route should be visually highlighted.
-
----
-
-# Articles Page Requirements
-
-Route:
+Subtitle:
 
 ```txt
-/articles
+Upload a .docx file containing rough travel notes. We'll transform it into a structured editorial draft.
 ```
-
-Page should display:
-- draft article list
-- article metadata
-- edit action
-- pagination
-- loading states
-- empty states
 
 ---
 
-# Article List Data Source
+# Upload Card
 
-Assume backend endpoint:
+Centered upload container with:
+- file picker
+- upload instructions
+- selected file state
+- upload progress
+- submit button
 
-```http
-GET /drafts
+---
+
+# File Restrictions
+
+IMPORTANT:
+Allow ONLY:
+
+```txt
+.docx
 ```
 
-Supports:
-- cursor pagination
-- limit
+Accepted MIME type:
 
-Example response:
+```txt
+application/vnd.openxmlformats-officedocument.wordprocessingml.document
+```
 
-```json
-{
-  "data": [
-    {
-      "id": "draft_123",
-      "title": "Komodo Boat Adventure",
-      "status": "DRAFT",
-      "updatedAt": "2025-01-01",
-      "createdAt": "2025-01-01"
-    }
-  ],
-  "meta": {
-    "nextCursor": "abc123",
-    "hasNextPage": true
-  }
-}
+Reject:
+- pdf
+- doc
+- txt
+- images
+- zip
+
+---
+
+# File Size Restrictions
+
+Max size:
+
+```txt
+10MB
+```
+
+Validate:
+- client-side
+- server-side errors
+
+---
+
+# Upload UX Requirements
+
+# Before File Selected
+
+Show:
+- upload icon
+- instruction text
+- supported format note
+
+Example:
+
+```txt
+Select a .docx file
+```
+
+---
+
+# After File Selected
+
+Display:
+- filename
+- size
+- remove/change action
+
+Example:
+
+```txt
+komodo-trip.docx
+2.1 MB
+```
+
+---
+
+# Upload Progress
+
+IMPORTANT:
+Show real upload progress.
+
+Use:
+- Axios onUploadProgress
+
+Display:
+- progress bar
+- percentage
+
+Example:
+
+```txt
+Uploading... 62%
+```
+
+---
+
+# Upload States
+
+Support:
+- idle
+- validating
+- uploading
+- success
+- error
+
+---
+
+# Success State
+
+After successful upload:
+
+Show:
+
+```txt
+Upload successful. Your draft is being processed.
+```
+
+Provide:
+- button to view articles
+OR
+- automatic redirect
+
+Recommended:
+- redirect to `/articles`
+
+---
+
+# Error State Requirements
+
+Handle:
+- invalid file type
+- file too large
+- upload failures
+- server errors
+- auth errors
+
+Example messages:
+
+```txt
+Only .docx files are supported.
+```
+
+```txt
+File size exceeds 10MB limit.
+```
+
+```txt
+Upload failed. Please try again.
 ```
 
 ---
 
 # React Query Requirements
 
-Create query hook:
+Create mutation hook:
 
 ```txt
-/hooks/queries/use-articles.ts
+/hooks/mutations/use-upload-document.ts
 ```
 
 Use:
-- useInfiniteQuery OR cursor pagination pattern
+- useMutation
 
-Recommended query key:
-
-```ts
-['articles']
-```
+Responsibilities:
+- upload file
+- track progress
+- handle success/error
+- invalidate article queries if needed
 
 ---
 
-# React Query Config
+# Recommended Query Invalidations
 
-Recommended:
+After successful upload:
 
 ```ts
-staleTime: 1000 * 60 * 2
-gcTime: 1000 * 60 * 30
-refetchOnWindowFocus: false
+queryClient.invalidateQueries({
+  queryKey: ['articles']
+})
 ```
 
 Reason:
-- article lists change moderately
-- avoid excessive refetching
+new draft may appear later.
 
 ---
 
-# UI Style Requirements
+# API Requirements
 
-The application should feel:
-- editorial
-- modern
-- minimal
-- premium SaaS
+Assume backend endpoint:
 
-Inspiration:
-- Notion
-- Linear
-- Medium
-- Vercel
-
-Avoid:
-- cluttered dashboards
-- giant shadows
-- excessive colors
-
----
-
-# Articles List Layout
-
-Use:
-- clean card list OR table layout
-- responsive spacing
-- subtle borders
-- hover states
-
-Each article item should show:
-
-| Field | Example |
-|---|---|
-| Title | Komodo Boat Adventure |
-| Status | DRAFT |
-| Updated At | Jan 1, 2025 |
-| Action | Edit button |
-
----
-
-# Edit Button Requirements
-
-Each article row/card should contain:
-
-```txt
-Edit
+```http
+POST /uploads
 ```
 
-Button action:
+Content-Type:
 
 ```txt
-/articles/:id/edit
+multipart/form-data
 ```
 
-IMPORTANT:
-Do NOT implement full editor page yet.
-
-Only navigation setup.
-
----
-
-# Empty State Requirements
-
-If no articles exist:
-
-Show:
-- empty illustration placeholder
-- helpful message
-- upload CTA button
-
-Example:
+Payload:
 
 ```txt
-No drafts yet.
-Upload your first travel notes document to get started.
+file: .docx
 ```
 
-Include button:
+Example response:
 
-```txt
-Go to Upload
+```json
+{
+  "data": {
+    "uploadId": "upload_123",
+    "jobId": "job_123",
+    "status": "QUEUED"
+  }
+}
 ```
 
 ---
 
-# Loading State Requirements
+# API Layer Requirements
 
-During loading:
-- show skeleton loaders
-- avoid layout shift
-
-Use:
-- shadcn skeleton component
-
----
-
-# Error State Requirements
-
-Display friendly error UI.
-
-Example:
+Create:
 
 ```txt
-Failed to load drafts.
-Try again.
-```
-
-Include retry button.
-
----
-
-# Pagination Requirements
-
-Use cursor pagination.
-
-Do NOT use offset pagination.
-
-Requirements:
-- Load More button OR infinite scroll
-- preserve query cache
-- stable ordering
-
-Recommended ordering:
-
-```txt
-updatedAt DESC
-```
-
----
-
-# Recommended Components Structure
-
-```txt
-/components
-  /layout
-    navbar.tsx
-    app-shell.tsx
-
-  /articles
-    article-list.tsx
-    article-card.tsx
-    article-empty-state.tsx
-    article-skeleton.tsx
-```
-
----
-
-# Recommended Hooks Structure
-
-```txt
-/hooks
-  /queries
-    use-articles.ts
-```
-
----
-
-# Recommended API Layer
-
-```txt
-/lib/api
-  drafts.service.ts
+/lib/api/uploads.service.ts
 ```
 
 Responsibilities:
-- fetch drafts
-- pagination params
-- response typing
+- multipart upload handling
+- progress callback support
+- typed responses
 
 ---
 
-# Type Safety Requirements
-
-Create shared types:
+# Recommended Component Structure
 
 ```txt
-/types
-  article.types.ts
+/components
+  /upload
+    upload-card.tsx
+    upload-dropzone.tsx
+    upload-progress.tsx
+    upload-error.tsx
 ```
 
-Include:
-- DraftArticle
-- DraftStatus
-- PaginatedDraftResponse
+IMPORTANT:
+No external dropzone library needed yet.
+
+Simple file input is enough.
 
 ---
 
-# Status Badge Requirements
+# Upload Interaction Requirements
 
-Display colored status badges.
+Use:
+- clickable upload area
+- hidden file input
+- drag-hover styling optional
 
-Statuses:
+Do NOT implement:
+- complex drag-and-drop logic
+- multi-upload queue
+- resumable uploads
 
-| Status | Style |
-|---|---|
-| DRAFT | neutral |
-| REVIEW_REQUIRED | warning |
-| READY | success |
-
-Use subtle colors only.
-
----
-
-# Accessibility Requirements
-
-Must support:
-- keyboard navigation
-- semantic buttons
-- aria labels
-- accessible pagination
-- screen reader support
+Keep flow simple.
 
 ---
 
-# Responsive Requirements
+# Styling Requirements
 
-Desktop:
-- comfortable content width
-- table/card layout
+Use:
+- Tailwind utility classes
+- shadcn/ui
 
-Mobile:
-- stacked cards
-- simplified metadata
-- responsive navbar
+Do NOT:
+- use inline CSS
+- use CSS modules
+- use styled-components
 
 ---
 
@@ -425,77 +415,144 @@ Mobile:
 Use:
 - Card
 - Button
-- Badge
-- Skeleton
-- DropdownMenu
+- Progress
+- Alert
 - Separator
+
+---
+
+# Accessibility Requirements
+
+Must support:
+- keyboard file selection
+- screen reader labels
+- accessible progress updates
+- proper button states
+
+---
+
+# Mobile Responsiveness
+
+Mobile:
+- stacked layout
+- full-width upload card
+- touch-friendly actions
+
+Desktop:
+- centered upload card
+- constrained width
+
+---
+
+# Empty Upload State Example
+
+```txt
+------------------------------------------------
+|                                              |
+|            Upload .docx Notes                |
+|                                              |
+|   Drag and drop or click to browse           |
+|                                              |
+|   Supported format: .docx                    |
+|   Max size: 10MB                             |
+|                                              |
+------------------------------------------------
+```
+
+---
+
+# Loading State Requirements
+
+While uploading:
+- disable upload button
+- prevent duplicate submissions
+- show progress UI
+
+---
+
+# Recommended Mutation Flow
+
+# Step 1
+
+Validate file client-side.
+
+---
+
+# Step 2
+
+Create FormData.
+
+---
+
+# Step 3
+
+Start upload mutation.
+
+---
+
+# Step 4
+
+Track upload progress.
+
+---
+
+# Step 5
+
+Handle success/error.
+
+---
+
+# Step 6
+
+Redirect user to articles page.
+
+---
+
+# Recommended Validation Logic
+
+Validate:
+- MIME type
+- extension
+- file size
+
+Do NOT rely ONLY on extension.
+
+---
+
+# Type Safety Requirements
+
+Create:
+
+```txt
+/types/upload.types.ts
+```
+
+Include:
+- UploadResponse
+- UploadStatus
+- UploadError
 
 ---
 
 # Authentication Requirements
 
-Articles page must assume authenticated users only.
-
-Use existing:
-- auth query
-- auth guard
-- token handling
+Upload page must:
+- require authenticated user
+- use existing auth flow/token injection
 
 Do NOT implement auth again.
-
----
-
-# Recommended Layout Structure
-
-```txt
----------------------------------------------------
-Navbar
----------------------------------------------------
-
-My Articles
-
-[ Article Card ]
-[ Article Card ]
-[ Article Card ]
-
-Load More
-```
-
----
-
-# Important UI Behaviors
-
-# Hover State
-
-Article card should:
-- slightly elevate
-- show subtle border change
-
-Keep motion minimal.
-
----
-
-# Active Navbar Link
-
-Highlight current route.
-
-Use:
-- muted background
-- font weight change
-
-Avoid flashy indicators.
 
 ---
 
 # Future-Proofing Considerations
 
 Prepare architecture for future:
-- article search
-- filtering
-- sorting
-- collaborative editing
+- multi-file uploads
+- drag-and-drop
+- resumable uploads
+- upload history
 
-BUT do NOT implement them now.
+BUT do NOT implement now.
 
 ---
 
@@ -503,41 +560,39 @@ BUT do NOT implement them now.
 
 # DO NOT
 
-## 1. Put Fetch Logic Inside Components
+## 1. Read Entire File Into Memory Manually
 
-Use:
-- hooks
-- service layer
+Use FormData directly.
 
 ---
 
-## 2. Use Offset Pagination
+## 2. Upload Multiple Files
 
-Use cursor pagination only.
-
----
-
-## 3. Add Redux/Zustand
-
-React Query is enough.
+Single file only.
 
 ---
 
-## 4. Overbuild Dashboard UI
+## 3. Add Complex Upload Libraries
 
-Keep UI clean and focused.
-
----
-
-## 5. Hardcode API Responses
-
-Use typed interfaces.
+Native file input is enough.
 
 ---
 
-## 6. Refetch Aggressively
+## 4. Skip Client Validation
 
-Disable unnecessary refetching.
+Validate before upload request.
+
+---
+
+## 5. Put Upload Logic Inside Components
+
+Use mutation hooks + service layer.
+
+---
+
+## 6. Ignore Upload Progress
+
+Progress feedback is important UX.
 
 ---
 
@@ -545,24 +600,22 @@ Disable unnecessary refetching.
 
 Implement:
 
-- authenticated app shell
-- responsive navbar
-- articles page
-- article list component
-- article cards/table
-- React Query articles hook
-- cursor pagination
-- loading skeletons
-- empty states
-- error states
-- Edit button navigation
-- Upload page navigation
+- upload page
+- upload card UI
+- file selection
+- client validation
+- upload mutation
+- upload progress UI
+- loading/error/success states
+- redirect after upload
+- responsive layout
+- typed upload service
 
 Do NOT implement:
+- realtime job tracking
 - article editor
-- uploads
-- AI workflows
-- realtime features
-- search/filtering
+- websockets
+- drag-and-drop libraries
+- multi-file uploads
 
-Focus ONLY on scalable article browsing/navigation infrastructure.
+Focus ONLY on scalable single `.docx` upload UX.

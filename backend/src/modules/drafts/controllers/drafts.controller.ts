@@ -9,11 +9,10 @@ import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 @Controller('drafts')
 @UseGuards(JwtAuthGuard)
 export class DraftsController {
-  constructor(private readonly draftsService: DraftsService) {}
+  constructor(private readonly draftsService: DraftsService) { }
 
   @Get()
   @UseInterceptors(CacheInterceptor)
-  @CacheTTL(60000)
   async listDrafts(
     @CurrentUser() user: any,
     @Query('cursor') cursor?: string,

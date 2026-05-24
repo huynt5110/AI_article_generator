@@ -14,10 +14,10 @@ export const articleExtractionSchema = z.object({
       body: z.string(),
     }),
   ),
-  bestFor: z.array(z.string()),
-  notFor: z.array(z.string()),
+  bestFor: z.union([z.array(z.string()), z.string().transform((s) => [s])]),
+  notFor: z.union([z.array(z.string()), z.string().transform((s) => [s])]),
   keyFacts: z.record(z.string(), z.unknown()),
-  ethicsNotes: z.array(z.string()),
+  ethicsNotes: z.union([z.array(z.string()), z.string().transform((s) => [s])]),
   provenance: z.array(provenanceItemSchema),
 });
 
