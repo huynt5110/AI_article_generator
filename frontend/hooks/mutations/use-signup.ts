@@ -12,7 +12,7 @@ export function useSignup() {
     mutationFn: (data: SignupPayload) => authService.signup(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.me });
-      router.push('/dashboard');
+      router.push('/articles');
     },
   });
 }

@@ -12,7 +12,7 @@ export function useLogin() {
     mutationFn: (data: LoginPayload) => authService.login(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.me });
-      router.push('/dashboard'); // or wherever the main app is
+      router.push('/articles'); // or wherever the main app is
     },
   });
 }
