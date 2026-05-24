@@ -13,7 +13,7 @@ COPY src ./src/
 COPY libs ./libs/
 
 ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
-RUN npx prisma generate
+RUN npx --yes prisma generate
 RUN npm run build:api
 
 FROM node:20-alpine AS deps
@@ -25,7 +25,7 @@ COPY prisma.config.ts ./
 COPY prisma ./prisma/
 ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 RUN npm ci --omit=dev
-RUN npx prisma generate
+RUN npx --yes prisma generate
 
 FROM node:20-alpine AS runner
 
@@ -37,7 +37,8 @@ ENV PORT=3001
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./
 
 EXPOSE 3001
 
-CMD ["node", "dist/src/main.js"]
+CMD ["sh", "-c", "npx --yes prisma migrate deploy && node dist/src/main.js"]

@@ -34,19 +34,25 @@ export class PrismaDraftsRepository implements IDraftsRepository {
     limit: number;
     status?: DraftStatus;
     organizationIds: string[];
+    userId: string;
   }) {
-    const { cursor, limit, status, organizationIds } = params;
+    const { cursor, limit, status, organizationIds, userId } = params;
 
     const where: Prisma.ArticleDraftWhereInput = {
-      upload: {
-        user: {
-          organizations: {
-            some: {
-              organizationId: { in: organizationIds }
+      OR: [
+        { upload: { userId: userId } },
+        organizationIds.length > 0 ? {
+          upload: {
+            user: {
+              organizations: {
+                some: {
+                  organizationId: { in: organizationIds }
+                }
+              }
             }
           }
-        }
-      },
+        } : null,
+      ].filter(Boolean) as Prisma.ArticleDraftWhereInput[],
       ...(status && { status }),
     };
 
@@ -82,12 +88,17 @@ export class PrismaDraftsRepository implements IDraftsRepository {
   async updatePartial(
     draftId: string, 
     structuredContent: any, 
-    modifiedProvenanceIds: string[]
+    modifiedProvenanceIds: string[],
+    updates?: { title?: string; hook?: string }
   ) {
     return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const updatedDraft = await tx.articleDraft.update({
         where: { id: draftId },
-        data: { structuredContent },
+        data: { 
+          structuredContent,
+          ...(updates?.title !== undefined && { title: updates.title }),
+          ...(updates?.hook !== undefined && { hook: updates.hook }),
+        },
       });
 
       if (modifiedProvenanceIds.length > 0) {

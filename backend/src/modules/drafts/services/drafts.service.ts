@@ -7,6 +7,8 @@ import { DraftsAccessPolicy } from '../policies/drafts-access.policy';
 import { JsonPatchApplicator } from '../strategies/json-patch/json-patch.applicator';
 import { DraftMapper } from '../mappers/draft.mapper';
 
+import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+
 @Injectable()
 export class DraftsService {
   constructor(
@@ -15,17 +17,26 @@ export class DraftsService {
     private readonly accessPolicy: DraftsAccessPolicy,
     private readonly patchApplicator: JsonPatchApplicator,
     private readonly draftMapper: DraftMapper,
+    private readonly prisma: PrismaService,
   ) {}
 
   async listDrafts(user: any, cursor?: string, limit = 20, status?: DraftStatus) {
-    const organizationIds = this.accessPolicy.getUserOrgIds(user);
-    if (organizationIds.length === 0) return { data: [], meta: { hasNextPage: false } };
-
+    const organizationIds = await this.accessPolicy.getUserOrgIds(user);
+    
     const { data, nextCursor } = await this.repository.list({
       cursor,
       limit,
       status,
       organizationIds,
+      userId: user.sub,
+    });
+
+    // Check if the user has any active extraction jobs
+    const activeJobsCount = await this.prisma.extractionJob.count({
+      where: {
+        upload: { userId: user.sub },
+        status: { notIn: ['COMPLETED', 'FAILED'] },
+      },
     });
 
     return {
@@ -33,6 +44,7 @@ export class DraftsService {
       meta: {
         cursor: nextCursor,
         hasNextPage: !!nextCursor,
+        isProcessing: activeJobsCount > 0,
       },
     };
   }
@@ -41,7 +53,7 @@ export class DraftsService {
     const draft = await this.repository.findById(id);
     
     // Evaluate Access Policy
-    this.accessPolicy.enforceCanView(user, draft);
+    await this.accessPolicy.enforceCanView(user, draft);
 
     return this.draftMapper.toResponseDto(draft);
   }
@@ -53,11 +65,15 @@ export class DraftsService {
     this.accessPolicy.enforceCanEdit(user, draft);
 
     // 1. Create Revision snapshot
-    await this.repository.createRevision(id, user.id, draft.structuredContent);
+    await this.repository.createRevision(id, user.sub, draft.structuredContent);
 
     // 2. Apply partial updates using Strategy Pattern (JsonPatchApplicator)
     const updatedContent = this.patchApplicator.apply(draft.structuredContent, dto.operations);
     
+    // Sync top-level fields into structuredContent to avoid stale duplicate data
+    if (dto.title !== undefined) updatedContent.title = dto.title;
+    if (dto.hook !== undefined) updatedContent.hook = dto.hook;
+
     const modifiedProvenanceIds: string[] = [];
 
     // Track provenance modifications
@@ -69,14 +85,17 @@ export class DraftsService {
     }
 
     // 3. Save
-    await this.repository.updatePartial(id, updatedContent, modifiedProvenanceIds);
+    await this.repository.updatePartial(id, updatedContent, modifiedProvenanceIds, {
+      title: dto.title,
+      hook: dto.hook,
+    });
     return this.getDraftDetail(user, id);
   }
 
   async listRevisions(user: any, id: string) {
     // Check access first
     const draft = await this.repository.findById(id);
-    this.accessPolicy.enforceCanView(user, draft);
+    await this.accessPolicy.enforceCanView(user, draft);
     
     return this.repository.listRevisions(id);
   }

@@ -1,4 +1,4 @@
-import { IsArray, IsNotEmpty, IsString, ValidateNested } from 'class-validator';
+import { IsArray, IsNotEmpty, IsString, ValidateNested, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateOperationDto {
@@ -11,6 +11,14 @@ export class UpdateOperationDto {
 }
 
 export class UpdateDraftDto {
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  hook?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => UpdateOperationDto)

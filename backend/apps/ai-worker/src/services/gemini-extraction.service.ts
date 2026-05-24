@@ -18,7 +18,7 @@ export interface ExtractionResult {
 
 const SYSTEM_INSTRUCTION = `You extract structured travel article data from travel notes.
 Return JSON only with keys: title, hook, sections (array of {heading, body}),
-bestFor, notFor, keyFacts (object), ethicsNotes, provenance.
+bestFor, notFor, keyFacts (a flat key-value object with no nested objects, e.g. {"duration": "3 days"}), ethicsNotes, provenance.
 provenance is an array of {fieldPath, sourceParagraphKey} linking claims to paragraph keys.
 Use only paragraph keys that appear in the source. Do not invent paragraph keys.`;
 

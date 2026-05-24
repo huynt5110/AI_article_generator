@@ -1,19 +1,21 @@
-import { Controller, Get, Patch, Body, Param, Query, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Patch, Body, Param, Query, UseGuards, UseInterceptors, Inject } from '@nestjs/common';
 import { DraftsService } from '../services/drafts.service';
 import { UpdateDraftDto } from '../dto/update-draft.dto';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { DraftStatus } from '@prisma/client';
-import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
+import { CacheInterceptor, CacheTTL, CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 
 @Controller('drafts')
 @UseGuards(JwtAuthGuard)
 export class DraftsController {
-  constructor(private readonly draftsService: DraftsService) {}
+  constructor(
+    private readonly draftsService: DraftsService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache
+  ) { }
 
   @Get()
-  @UseInterceptors(CacheInterceptor)
-  @CacheTTL(60000)
   async listDrafts(
     @CurrentUser() user: any,
     @Query('cursor') cursor?: string,
@@ -36,7 +38,9 @@ export class DraftsController {
     @Param('id') id: string,
     @Body() updateDto: UpdateDraftDto,
   ) {
-    return this.draftsService.updateDraft(user, id, updateDto);
+    const updated = await this.draftsService.updateDraft(user, id, updateDto);
+    await this.cacheManager.del(`/drafts/${id}`);
+    return updated;
   }
 
   @Get(':id/revisions')
