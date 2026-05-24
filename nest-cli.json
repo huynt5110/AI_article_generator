@@ -3,6 +3,38 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "webpack": false
+  },
+  "monorepo": true,
+  "root": "api",
+  "projects": {
+    "api": {
+      "type": "application",
+      "root": ".",
+      "entryFile": "main",
+      "sourceRoot": "src",
+      "compilerOptions": {
+        "tsConfigPath": "tsconfig.build.json"
+      }
+    },
+    "ai-worker": {
+      "type": "application",
+      "root": "apps/ai-worker",
+      "entryFile": "main",
+      "sourceRoot": "apps/ai-worker/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/ai-worker/tsconfig.app.json"
+      }
+    },
+    "shared": {
+      "type": "library",
+      "root": "libs/shared",
+      "entryFile": "index",
+      "sourceRoot": "libs/shared/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/shared/tsconfig.lib.json"
+      }
+    }
   }
 }

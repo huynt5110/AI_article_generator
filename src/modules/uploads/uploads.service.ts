@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { S3Service } from './storage/s3.service';
+import { ExtractionQueueService } from '../extraction/extraction-queue.service';
 import * as crypto from 'crypto';
-import { UploadStatus } from '@prisma/client';
+import { ExtractionJobStatus, UploadStatus } from '@prisma/client';
 
 @Injectable()
 export class UploadsService {
@@ -11,40 +12,52 @@ export class UploadsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
+    private readonly extractionQueue: ExtractionQueueService,
   ) { }
 
   async uploadFileDirectly(file: Express.Multer.File, userId: string) {
-    this.logger.debug(`Uploading file directly for user ${userId}: ${file.originalname}`);
+    this.logger.debug(
+      `Uploading file for user ${userId}: ${file.originalname}`,
+    );
 
-    // Generate unique upload ID
     const uploadId = crypto.randomUUID();
-
-    // Construct deterministic S3 Key
     const s3Key = `uploads/${userId}/${uploadId}/original.docx`;
 
-    // Step 1: Upload the file directly to S3
     await this.s3Service.uploadFile(file.buffer, s3Key, file.mimetype);
 
-    // Step 2: Create the database record with UPLOADED status
-    const upload = await this.prisma.upload.create({
-      data: {
-        id: uploadId,
-        userId,
-        originalName: file.originalname,
-        mimeType: file.mimetype,
-        size: file.size,
-        s3Key,
-        bucket: this.s3Service.bucket,
-        status: UploadStatus.UPLOADED,
-      },
+    const result = await this.prisma.$transaction(async (tx) => {
+      const upload = await tx.upload.create({
+        data: {
+          id: uploadId,
+          userId,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          size: file.size,
+          s3Key,
+          bucket: this.s3Service.bucket,
+          status: UploadStatus.UPLOADED,
+        },
+      });
+
+      const extractionJob = await tx.extractionJob.create({
+        data: {
+          uploadId: upload.id,
+          status: ExtractionJobStatus.QUEUED,
+        },
+      });
+
+      return { upload, extractionJob };
+    });
+
+    await this.extractionQueue.enqueueExtraction({
+      uploadId: result.upload.id,
+      jobId: result.extractionJob.id,
     });
 
     return {
-      data: {
-        uploadId: upload.id,
-        s3Key,
-        status: upload.status,
-      },
+      uploadId: result.upload.id,
+      jobId: result.extractionJob.id,
+      status: result.extractionJob.status,
     };
   }
 }

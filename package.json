@@ -6,15 +6,17 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "nest build",
+    "build": "nest build api && nest build ai-worker",
+    "build:api": "nest build api",
     "build:worker": "nest build ai-worker",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "nest start",
-    "start:dev": "nest start --watch",
-    "start:debug": "nest start --debug --watch",
+    "start": "nest start api",
+    "start:dev": "nest start api --watch",
+    "start:debug": "nest start api --debug --watch",
     "start:prod": "node dist/src/main",
     "start:worker": "nest start ai-worker",
     "start:worker:dev": "nest start ai-worker --watch",
+    "start:worker:prod": "node dist/apps/ai-worker/apps/ai-worker/src/main.js",
     "db:migrate": "npx prisma migrate dev",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
@@ -39,9 +41,10 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "bcrypt": "^6.0.0",
-    "bullmq": "^5.77.1",
     "cache-manager": "^7.2.8",
     "cache-manager-redis-yet": "^5.1.5",
+    "bullmq": "^5.66.4",
+    "ioredis": "^5.9.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
@@ -102,6 +105,10 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^@app/shared$": "<rootDir>/../libs/shared/src",
+      "^@app/shared/(.*)$": "<rootDir>/../libs/shared/src/$1"
+    }
   }
 }

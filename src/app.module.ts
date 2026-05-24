@@ -7,6 +7,7 @@ import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 import s3Config from './config/s3.config';
+import redisConfig from './config/redis.config';
 import { validate } from './config/env.validation';
 
 import { PrismaModule } from './infrastructure/prisma/prisma.module';
@@ -18,12 +19,13 @@ import { OrganizationsModule } from './modules/organizations/organizations.modul
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { DraftsModule } from './modules/drafts/drafts.module';
+import { JobsModule } from './modules/jobs/jobs.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig, s3Config],
+      load: [appConfig, databaseConfig, jwtConfig, s3Config, redisConfig],
       validate,
     }),
     CacheModule.register({
@@ -37,6 +39,7 @@ import { DraftsModule } from './modules/drafts/drafts.module';
     OrganizationsModule,
     UploadsModule,
     DraftsModule,
+    JobsModule
   ],
   providers: [
     {
@@ -45,4 +48,4 @@ import { DraftsModule } from './modules/drafts/drafts.module';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

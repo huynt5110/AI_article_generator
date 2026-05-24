@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
   PutObjectCommand,
+  GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { StorageProvider } from './storage.interface';
 
@@ -38,5 +39,21 @@ export class S3Service implements StorageProvider {
     });
 
     await this.s3Client.send(command);
+  }
+
+  async downloadFile(key: string, bucket?: string): Promise<Buffer> {
+    const command = new GetObjectCommand({
+      Bucket: bucket ?? this.bucket,
+      Key: key,
+    });
+
+    const response = await this.s3Client.send(command);
+    const body = response.Body;
+
+    if (!body) {
+      throw new Error(`Empty S3 object for key: ${key}`);
+    }
+
+    return Buffer.from(await body.transformToByteArray());
   }
 }

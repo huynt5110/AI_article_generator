@@ -140,7 +140,7 @@ model ExtractionJob {
   startedAt     DateTime?
   completedAt   DateTime?
   createdAt     DateTime            @default(now())
-  updatedAt     DateTime
+  updatedAt     DateTime            @updatedAt
   upload        Upload              @relation(fields: [uploadId], references: [id], onDelete: Cascade)
 
   @@index([status])

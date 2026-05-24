@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 # Next Stage — Draft Article Listing & Editing System
 
 # Goal
@@ -102,6 +103,321 @@ DraftsModule should NOT:
 # ArticleDraft Model
 
 Main editable article entity.
+=======
+# Next Stage — Scalable AI Processing Pipeline (Server Upload → S3 → Queue → AI Workers)
+
+# Goal
+
+Implement scalable asynchronous AI processing infrastructure for uploaded `.docx` travel note files.
+
+Current architecture:
+- authentication already exists
+- NestJS upload endpoint already exists
+- API uploads files to S3
+- API can enqueue BullMQ jobs
+
+Now implement:
+- scalable AI processing pipeline
+- async workers
+- document parsing
+- paragraph extraction
+- structured AI extraction
+- provenance tracking
+- extraction job lifecycle
+
+IMPORTANT:
+AI processing must scale independently from the NestJS API.
+
+---
+
+# Current Upload Flow
+
+Current architecture:
+
+```txt
+Client
+   |
+POST /uploads
+   |
+NestJS API
+   |
+Upload .docx to S3
+   |
+Create Upload row
+   |
+Enqueue BullMQ job
+   |
+Return immediately
+```
+
+This is acceptable because:
+- uploads are `.docx` only
+- small file sizes
+- upload bandwidth is NOT the scaling bottleneck
+
+The true scaling bottleneck is:
+- AI processing
+- LLM latency
+- queue throughput
+- retries
+- provider rate limits
+
+---
+
+# Core Architectural Principle
+
+The NestJS API should NEVER:
+- parse `.docx`
+- extract content
+- call OpenAI synchronously
+- process AI workloads inline
+
+The API should ONLY:
+1. receive upload
+2. validate upload
+3. upload to S3
+4. create DB rows
+5. enqueue jobs
+6. return immediately
+
+ALL AI work must happen asynchronously in workers.
+
+---
+
+# Recommended High-Level Architecture
+
+```txt
+                ┌────────────┐
+                │  Frontend  │
+                └─────┬──────┘
+                      │
+                NestJS API
+                      │
+              Upload .docx
+                      │
+                  AWS S3
+                      │
+             Create Upload row
+                      │
+           Create Extraction Job
+                      │
+                BullMQ Queue
+                      │
+        ┌─────────────┴─────────────┐
+        │                           │
+   AI Worker 1                 AI Worker N
+        │                           │
+        └─────────────┬─────────────┘
+                      │
+               OpenAI / LLM
+                      │
+                 PostgreSQL
+```
+
+---
+
+# Tech Stack
+
+# API
+
+- NestJS
+- Prisma
+- PostgreSQL
+
+---
+
+# Queue
+
+- BullMQ
+- Redis
+
+---
+
+# AI Workers
+
+Separate deployment from API.
+
+Recommended:
+- separate NestJS app
+
+Example:
+
+```txt
+/apps/api
+/apps/ai-worker
+```
+
+---
+
+# AI Provider
+
+- OpenAI API
+
+Use:
+- structured JSON outputs
+- schema validation
+
+---
+
+# Why Async Workers Are Critical
+
+AI workloads are:
+- slow
+- bursty
+- expensive
+- retry-prone
+- rate-limited
+
+Do NOT process AI inside HTTP requests.
+
+Bad architecture:
+
+```txt
+POST /uploads
+ -> upload file
+ -> parse document
+ -> call OpenAI
+ -> wait 45 seconds
+```
+
+This will destroy API scalability.
+
+---
+
+# Correct Architecture
+
+```txt
+POST /uploads
+ -> upload to S3
+ -> enqueue job
+ -> return immediately
+```
+
+Workers handle everything else.
+
+---
+
+# Recommended Upload Flow
+
+# Step 1 — Upload File
+
+```http
+POST /uploads
+```
+
+multipart/form-data
+
+Requirements:
+- authenticated route
+- `.docx` only
+- max 10MB
+
+---
+
+# Step 2 — Validate Upload
+
+Validate:
+- auth
+- MIME type
+- `.docx` extension
+- file size
+
+Allowed MIME type:
+
+```txt
+application/vnd.openxmlformats-officedocument.wordprocessingml.document
+```
+
+Reject:
+- pdf
+- images
+- zip
+- executables
+- doc
+- txt
+
+---
+
+# Step 3 — Upload File to S3
+
+NestJS uploads file to S3 immediately.
+
+Do NOT:
+- keep permanent local file
+- process file in API
+- parse document here
+
+---
+
+# Step 4 — Create Upload Record
+
+Create upload DB row.
+
+Example status:
+
+```txt
+UPLOADED
+```
+
+---
+
+# Step 5 — Create Extraction Job
+
+Immediately create extraction job.
+
+Status:
+
+```txt
+QUEUED
+```
+
+---
+
+# Step 6 — Enqueue BullMQ Job
+
+Queue payload should remain minimal.
+
+Example:
+
+```json
+{
+  "uploadId": "upload_123",
+  "jobId": "job_123"
+}
+```
+
+Do NOT put:
+- document text
+- AI prompts
+- large payloads
+inside BullMQ jobs.
+
+---
+
+# Step 7 — Return Immediately
+
+Example response:
+
+```json
+{
+  "data": {
+    "uploadId": "upload_123",
+    "jobId": "job_123",
+    "status": "QUEUED"
+  }
+}
+```
+
+API request should complete quickly.
+
+---
+
+# Database Design
+
+# Upload Model
+
+Tracks storage lifecycle ONLY.
+>>>>>>> Stashed changes
 
 ```prisma
 model ArticleDraft {
@@ -113,11 +429,19 @@ model ArticleDraft {
 
   title               String?
 
+<<<<<<< Updated upstream
   hook                String?
+=======
+  size          Int
+>>>>>>> Stashed changes
 
   structuredContent   Json
 
+<<<<<<< Updated upstream
   status              DraftStatus @default(DRAFT)
+=======
+  status        UploadStatus
+>>>>>>> Stashed changes
 
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -156,16 +480,26 @@ This is the correct storage strategy.
 # Draft Status Enum
 
 ```prisma
+<<<<<<< Updated upstream
 enum DraftStatus {
   DRAFT
   REVIEW_REQUIRED
   READY
   PUBLISHED
+=======
+enum UploadStatus {
+  UPLOADING
+  UPLOADED
+  FAILED
+>>>>>>> Stashed changes
 }
 ```
 
----
+IMPORTANT:
+Upload status tracks ONLY:
+- storage transfer lifecycle
 
+<<<<<<< Updated upstream
 # Provenance Model
 
 Tracks source mapping.
@@ -206,9 +540,33 @@ That creates:
 - difficult updates
 
 Keep provenance normalized.
+=======
+NOT AI processing lifecycle.
 
 ---
 
+# Extraction Job Model
+
+Tracks AI processing lifecycle.
+
+```prisma
+model ExtractionJob {
+  id              String   @id @default(cuid())
+
+  uploadId        String
+  upload          Upload @relation(fields: [uploadId], references: [id])
+
+  status          ExtractionJobStatus
+
+  model           String?
+
+  promptVersion   String?
+>>>>>>> Stashed changes
+
+  tokenInput      Int?
+  tokenOutput     Int?
+
+<<<<<<< Updated upstream
 # Recommended Revision Tracking
 
 VERY IMPORTANT.
@@ -296,10 +654,23 @@ Supports:
 
 ```http
 GET /drafts/:id/revisions
+=======
+  latencyMs       Int?
+
+  errorMessage    String?
+
+  startedAt       DateTime?
+  completedAt     DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+>>>>>>> Stashed changes
 ```
 
 ---
 
+<<<<<<< Updated upstream
 # Restore Revision
 
 ```http
@@ -378,10 +749,390 @@ PATCH /drafts/:id
     }
   ]
 }
+=======
+# Extraction Job Status Enum
+
+```prisma
+enum ExtractionJobStatus {
+  QUEUED
+  PARSING
+  EXTRACTING
+  VALIDATING
+  COMPLETED
+  FAILED
+}
+```
+
+IMPORTANT:
+Do NOT mix:
+- upload lifecycle
+- extraction lifecycle
+
+These are separate state machines.
+
+---
+
+# Document Model
+
+Represents parsed `.docx` content.
+
+```prisma
+model Document {
+  id              String   @id @default(cuid())
+
+  uploadId        String   @unique
+  upload          Upload @relation(fields: [uploadId], references: [id])
+
+  extractedText   String
+
+  createdAt       DateTime @default(now())
+}
 ```
 
 ---
 
+# Document Paragraph Model
+
+CRITICAL FOR PROVENANCE.
+
+```prisma
+model DocumentParagraph {
+  id            String   @id @default(cuid())
+
+  documentId    String
+  document      Document @relation(fields: [documentId], references: [id])
+
+  paragraphKey  String
+
+  text          String
+
+  orderIndex    Int
+
+  createdAt     DateTime @default(now())
+}
+```
+
+---
+
+# Why Paragraph-Level Storage Matters
+
+Each paragraph should receive stable IDs.
+
+Example:
+
+```txt
+p1
+p2
+p3
+```
+
+This enables:
+- provenance tracking
+- source references
+- hallucination reduction
+- explainability
+- editable AI outputs
+
+This is one of the MOST important architecture decisions.
+
+---
+
+# Example Paragraph
+
+```json
+{
+  "paragraphKey": "p12",
+  "text": "The overnight Komodo boat trip cost about $140."
+}
+```
+
+---
+
+# Article Draft Model
+
+Structured AI-generated content.
+
+```prisma
+model ArticleDraft {
+  id                  String   @id @default(cuid())
+
+  uploadId            String   @unique
+
+  title               String?
+
+  hook                String?
+
+  structuredContent   Json
+
+  status              DraftStatus @default(DRAFT)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+```
+
+---
+
+# Draft Status Enum
+
+```prisma
+enum DraftStatus {
+  DRAFT
+  REVIEW_REQUIRED
+  READY
+  PUBLISHED
+}
+```
+
+---
+
+# Provenance Model
+
+VERY IMPORTANT.
+
+```prisma
+model Provenance {
+  id                  String   @id @default(cuid())
+
+  articleDraftId      String
+  articleDraft        ArticleDraft @relation(fields: [articleDraftId], references: [id])
+
+  fieldPath           String
+
+  sourceParagraphKey  String
+
+  sourceText          String
+
+  createdAt           DateTime @default(now())
+}
+```
+
+---
+
+# Example Provenance Record
+
+```txt
+fieldPath = "keyFacts.priceRange"
+
+sourceParagraphKey = "p12"
+
+sourceText = "The overnight Komodo boat trip cost about $140."
+```
+
+---
+
+# Why Provenance Is Critical
+
+Without provenance:
+- users cannot verify claims
+- hallucinations become dangerous
+- editing UX becomes weak
+- AI trust decreases
+
+This is NOT optional architecture.
+
+---
+
+# Worker Responsibilities
+
+AI workers should:
+
+1. Download `.docx` from S3
+2. Parse document
+3. Extract paragraphs
+4. Persist paragraph records
+5. Build AI prompt
+6. Call OpenAI
+7. Validate structured JSON
+8. Store article draft
+9. Store provenance
+10. Update extraction status
+
+Workers should be stateless.
+
+Workers should NOT:
+- store permanent local state
+- depend on singleton execution
+- rely on memory sessions
+
+This allows horizontal scaling.
+
+---
+
+# Recommended Queue Architecture
+
+# Queue Name
+
+```txt
+document-extraction
+```
+
+---
+
+# BullMQ Job Payload
+
+Minimal payload only.
+
+Example:
+
+```json
+{
+  "uploadId": "upload_123",
+  "jobId": "job_123"
+}
+```
+
+---
+
+# Retry Strategy
+
+AI providers WILL fail.
+
+Use:
+- retries
+- exponential backoff
+
+Example:
+
+```txt
+attempts: 3
+backoff:
+  type: exponential
+```
+
+---
+
+# Worker Concurrency
+
+Concurrency must be configurable.
+
+Example:
+
+```env
+WORKER_CONCURRENCY=5
+```
+
+Do NOT hardcode concurrency.
+
+---
+
+# Dead Letter Strategy
+
+Failed jobs must remain inspectable.
+
+Do NOT silently discard failed jobs.
+
+---
+
+# Recommended Processing Pipeline
+
+# Stage 1 — Parse Document
+
+Extract:
+- raw text
+- paragraphs
+- ordering
+
+Store:
+- Document
+- DocumentParagraph rows
+
+---
+
+# Stage 2 — AI Extraction
+
+LLM generates structured JSON.
+
+Example:
+
+```json
+{
+  "title": "...",
+  "hook": "...",
+  "sections": [],
+  "bestFor": [],
+  "notFor": [],
+  "keyFacts": {},
+  "ethicsNotes": []
+}
+```
+
+---
+
+# Stage 3 — Validation
+
+Validate:
+- JSON schema
+- required fields
+- malformed outputs
+- invalid structures
+
+---
+
+# Stage 4 — Persist Draft
+
+Store:
+- structured article
+- provenance mappings
+
+---
+
+# Recommended AI Prompt Strategy
+
+Do NOT:
+- dump entire system into one giant prompt
+- rely on free-form markdown
+
+Prefer:
+- structured extraction
+- schema-driven responses
+- JSON outputs
+
+---
+
+# Recommended NestJS Structure
+
+# API App
+
+```txt
+/apps/api
+```
+
+Responsibilities:
+- auth
+- uploads
+- job creation
+- draft retrieval APIs
+
+---
+
+# Worker App
+
+```txt
+/apps/ai-worker
+```
+
+Responsibilities:
+- queue consumers
+- AI orchestration
+- document parsing
+- OpenAI integration
+
+---
+
+# Shared Packages
+
+```txt
+/packages
+  /shared-types
+  /prompt-templates
+  /common-utils
+>>>>>>> Stashed changes
+```
+
+---
+
+<<<<<<< Updated upstream
 # Why Partial Updates Matter
 
 Replacing entire JSON:
@@ -676,6 +1427,77 @@ Potential future services:
 - analytics pipeline
 
 NOT draft CRUD.
+=======
+# API Endpoints
+
+# Upload File
+
+```http
+POST /uploads
+```
+
+Responsibilities:
+- receive `.docx`
+- upload to S3
+- create upload row
+- enqueue extraction job
+
+---
+
+# Get Job Status
+
+```http
+GET /jobs/:id
+```
+
+Returns:
+- current extraction status
+- timestamps
+- errors
+- progress
+
+---
+
+# Get Draft
+
+```http
+GET /drafts/:id
+```
+
+Returns:
+- structured article
+- provenance mappings
+
+---
+
+# Observability Requirements
+
+Track:
+- token usage
+- model version
+- prompt version
+- retries
+- failures
+- latency
+- queue depth
+
+This becomes extremely important later.
+
+---
+
+# Recommended Document Parser
+
+Use dedicated `.docx` parsing library.
+
+Requirements:
+- paragraph extraction
+- ordering preservation
+- clean normalization
+
+Do NOT:
+- parse via regex
+- rely on raw XML manually
+>>>>>>> Stashed changes
 
 ---
 
@@ -683,6 +1505,7 @@ NOT draft CRUD.
 
 # DO NOT
 
+<<<<<<< Updated upstream
 ## 1. Store Entire Draft As Flat Markdown
 
 Use structured JSON.
@@ -716,6 +1539,44 @@ Use repositories/services.
 ## 6. Prematurely Microservice Draft Editing
 
 No operational scaling benefit.
+=======
+## 1. Process AI Inside Upload Request
+
+Always enqueue.
+
+---
+
+## 2. Put Large Payloads Into BullMQ
+
+Send IDs only.
+
+---
+
+## 3. Store Only Raw Markdown
+
+Store structured JSON.
+
+---
+
+## 4. Skip Provenance
+
+This is core product architecture.
+
+---
+
+## 5. Create One Giant Status Enum
+
+Separate:
+- upload lifecycle
+- extraction lifecycle
+- editorial lifecycle
+
+---
+
+## 6. Make Workers Stateful
+
+Workers must scale horizontally.
+>>>>>>> Stashed changes
 
 ---
 
@@ -723,6 +1584,7 @@ No operational scaling benefit.
 
 Implement:
 
+<<<<<<< Updated upstream
 - Draft listing endpoint
 - Draft detail endpoint
 - Partial draft updates
@@ -742,3 +1604,27 @@ Do NOT implement:
 - websockets
 
 Focus ONLY on scalable editorial CRUD infrastructure.
+=======
+- ExtractionJob model
+- extraction status enum
+- BullMQ setup
+- Redis setup
+- AI worker app
+- extraction queue
+- `.docx` parser
+- paragraph extraction
+- paragraph persistence
+- extraction job updates
+- OpenAI integration
+- structured JSON validation
+- article draft persistence
+- provenance persistence
+
+Do NOT implement:
+- frontend
+- publishing
+- collaborative editing
+- embeddings/search
+
+Focus ONLY on scalable AI processing infrastructure.
+>>>>>>> Stashed changes
